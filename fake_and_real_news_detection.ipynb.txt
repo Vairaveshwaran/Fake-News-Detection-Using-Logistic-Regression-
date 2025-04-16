@@ -1,0 +1,1729 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "gpuType": "T4",
+      "authorship_tag": "ABX9TyN8xR+4UATCmJPlbz85T01h",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/Vickey-VJ/Fake-News-Detection-using-MLP-Classifier/blob/main/fake_and_real_news_detection.ipynb\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "SffhWHVNmUP8",
+        "outputId": "daf098cd-9a6a-4f81-ffd5-935fe8fb1c34"
+      },
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "WARNING:root:pydrive is deprecated and no longer maintained. We recommend that you migrate your projects to pydrive2, the maintained fork of pydrive\n"
+          ]
+        }
+      ],
+      "source": [
+        "from pydrive.auth import GoogleAuth\n",
+        "from pydrive.drive import GoogleDrive\n",
+        "from google.colab import auth\n",
+        "from oauth2client.client import GoogleCredentials"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "auth.authenticate_user()\n",
+        "gauth = GoogleAuth()\n",
+        "gauth.credentials = GoogleCredentials.get_application_default()\n",
+        "drive = GoogleDrive(gauth)"
+      ],
+      "metadata": {
+        "id": "E_Q0RD-RqJnJ"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Importing Fake news dataset\n",
+        "id = '1JwYL6tKmeXbceXgZQnmoXoKWKEq6imEg'\n",
+        "imported = drive.CreateFile({'id': id})\n",
+        "imported.GetContentFile('Fake.csv')\n",
+        "\n",
+        "#Importing True news dataset\n",
+        "id2 = '1u9J32prZMHpB2NNBGsCXKkEZphY1QG_T'\n",
+        "imported = drive.CreateFile({'id': id2})\n",
+        "imported.GetContentFile('True.csv')"
+      ],
+      "metadata": {
+        "id": "chvcUbIbr_br"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# prompt: import pandas and read true and fake datasets from contents\n",
+        "\n",
+        "import pandas as pd\n",
+        "\n",
+        "# Read the True news dataset from its content\n",
+        "true_df = pd.read_csv('True.csv', encoding='utf-8')\n",
+        "\n",
+        "# Read the Fake news dataset from its content\n",
+        "fake_df = pd.read_csv('Fake.csv', encoding='utf-8')\n"
+      ],
+      "metadata": {
+        "id": "1Noi7FwRs23i"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "true_df.head(20)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 1000
+        },
+        "id": "IzdyberNts1K",
+        "outputId": "47722b72-133f-43e7-cf57-a2a3fdddfd02"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "                                                title  \\\n",
+              "0   As U.S. budget fight looms, Republicans flip t...   \n",
+              "1   U.S. military to accept transgender recruits o...   \n",
+              "2   Senior U.S. Republican senator: 'Let Mr. Muell...   \n",
+              "3   FBI Russia probe helped by Australian diplomat...   \n",
+              "4   Trump wants Postal Service to charge 'much mor...   \n",
+              "5   White House, Congress prepare for talks on spe...   \n",
+              "6   Trump says Russia probe will be fair, but time...   \n",
+              "7   Factbox: Trump on Twitter (Dec 29) - Approval ...   \n",
+              "8          Trump on Twitter (Dec 28) - Global Warming   \n",
+              "9   Alabama official to certify Senator-elect Jone...   \n",
+              "10  Jones certified U.S. Senate winner despite Moo...   \n",
+              "11  New York governor questions the constitutional...   \n",
+              "12  Factbox: Trump on Twitter (Dec 28) - Vanity Fa...   \n",
+              "13     Trump on Twitter (Dec 27) - Trump, Iraq, Syria   \n",
+              "14  Man says he delivered manure to Mnuchin to pro...   \n",
+              "15  Virginia officials postpone lottery drawing to...   \n",
+              "16  U.S. lawmakers question businessman at 2016 Tr...   \n",
+              "17  Trump on Twitter (Dec 26) - Hillary Clinton, T...   \n",
+              "18  U.S. appeals court rejects challenge to Trump ...   \n",
+              "19  Treasury Secretary Mnuchin was sent gift-wrapp...   \n",
+              "\n",
+              "                                                 text       subject  \\\n",
+              "0   WASHINGTON (Reuters) - The head of a conservat...  politicsNews   \n",
+              "1   WASHINGTON (Reuters) - Transgender people will...  politicsNews   \n",
+              "2   WASHINGTON (Reuters) - The special counsel inv...  politicsNews   \n",
+              "3   WASHINGTON (Reuters) - Trump campaign adviser ...  politicsNews   \n",
+              "4   SEATTLE/WASHINGTON (Reuters) - President Donal...  politicsNews   \n",
+              "5   WEST PALM BEACH, Fla./WASHINGTON (Reuters) - T...  politicsNews   \n",
+              "6   WEST PALM BEACH, Fla (Reuters) - President Don...  politicsNews   \n",
+              "7   The following statements were posted to the ve...  politicsNews   \n",
+              "8   The following statements were posted to the ve...  politicsNews   \n",
+              "9   WASHINGTON (Reuters) - Alabama Secretary of St...  politicsNews   \n",
+              "10  (Reuters) - Alabama officials on Thursday cert...  politicsNews   \n",
+              "11  NEW YORK/WASHINGTON (Reuters) - The new U.S. t...  politicsNews   \n",
+              "12  The following statements were posted to the ve...  politicsNews   \n",
+              "13  The following statements were posted to the ve...  politicsNews   \n",
+              "14   (In Dec. 25 story, in second paragraph, corre...  politicsNews   \n",
+              "15  (Reuters) - A lottery drawing to settle a tied...  politicsNews   \n",
+              "16  WASHINGTON (Reuters) - A Georgian-American bus...  politicsNews   \n",
+              "17  The following statements were posted to the ve...  politicsNews   \n",
+              "18  (Reuters) - A U.S. appeals court in Washington...  politicsNews   \n",
+              "19  (Reuters) - A gift-wrapped package addressed t...  politicsNews   \n",
+              "\n",
+              "                  date  \n",
+              "0   December 31, 2017   \n",
+              "1   December 29, 2017   \n",
+              "2   December 31, 2017   \n",
+              "3   December 30, 2017   \n",
+              "4   December 29, 2017   \n",
+              "5   December 29, 2017   \n",
+              "6   December 29, 2017   \n",
+              "7   December 29, 2017   \n",
+              "8   December 29, 2017   \n",
+              "9   December 28, 2017   \n",
+              "10  December 28, 2017   \n",
+              "11  December 28, 2017   \n",
+              "12  December 28, 2017   \n",
+              "13  December 28, 2017   \n",
+              "14  December 25, 2017   \n",
+              "15  December 27, 2017   \n",
+              "16  December 27, 2017   \n",
+              "17  December 26, 2017   \n",
+              "18  December 26, 2017   \n",
+              "19  December 24, 2017   "
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-d7e0abaf-f74a-4206-a103-b8105bbab8c2\" class=\"colab-df-container\">\n",
+              "    <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>title</th>\n",
+              "      <th>text</th>\n",
+              "      <th>subject</th>\n",
+              "      <th>date</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>As U.S. budget fight looms, Republicans flip t...</td>\n",
+              "      <td>WASHINGTON (Reuters) - The head of a conservat...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 31, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>U.S. military to accept transgender recruits o...</td>\n",
+              "      <td>WASHINGTON (Reuters) - Transgender people will...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>Senior U.S. Republican senator: 'Let Mr. Muell...</td>\n",
+              "      <td>WASHINGTON (Reuters) - The special counsel inv...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 31, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>FBI Russia probe helped by Australian diplomat...</td>\n",
+              "      <td>WASHINGTON (Reuters) - Trump campaign adviser ...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 30, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>Trump wants Postal Service to charge 'much mor...</td>\n",
+              "      <td>SEATTLE/WASHINGTON (Reuters) - President Donal...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>White House, Congress prepare for talks on spe...</td>\n",
+              "      <td>WEST PALM BEACH, Fla./WASHINGTON (Reuters) - T...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>Trump says Russia probe will be fair, but time...</td>\n",
+              "      <td>WEST PALM BEACH, Fla (Reuters) - President Don...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>Factbox: Trump on Twitter (Dec 29) - Approval ...</td>\n",
+              "      <td>The following statements were posted to the ve...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>Trump on Twitter (Dec 28) - Global Warming</td>\n",
+              "      <td>The following statements were posted to the ve...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>Alabama official to certify Senator-elect Jone...</td>\n",
+              "      <td>WASHINGTON (Reuters) - Alabama Secretary of St...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 28, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>10</th>\n",
+              "      <td>Jones certified U.S. Senate winner despite Moo...</td>\n",
+              "      <td>(Reuters) - Alabama officials on Thursday cert...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 28, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>11</th>\n",
+              "      <td>New York governor questions the constitutional...</td>\n",
+              "      <td>NEW YORK/WASHINGTON (Reuters) - The new U.S. t...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 28, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>12</th>\n",
+              "      <td>Factbox: Trump on Twitter (Dec 28) - Vanity Fa...</td>\n",
+              "      <td>The following statements were posted to the ve...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 28, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>13</th>\n",
+              "      <td>Trump on Twitter (Dec 27) - Trump, Iraq, Syria</td>\n",
+              "      <td>The following statements were posted to the ve...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 28, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>14</th>\n",
+              "      <td>Man says he delivered manure to Mnuchin to pro...</td>\n",
+              "      <td>(In Dec. 25 story, in second paragraph, corre...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 25, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>15</th>\n",
+              "      <td>Virginia officials postpone lottery drawing to...</td>\n",
+              "      <td>(Reuters) - A lottery drawing to settle a tied...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 27, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>16</th>\n",
+              "      <td>U.S. lawmakers question businessman at 2016 Tr...</td>\n",
+              "      <td>WASHINGTON (Reuters) - A Georgian-American bus...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 27, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>17</th>\n",
+              "      <td>Trump on Twitter (Dec 26) - Hillary Clinton, T...</td>\n",
+              "      <td>The following statements were posted to the ve...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 26, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>18</th>\n",
+              "      <td>U.S. appeals court rejects challenge to Trump ...</td>\n",
+              "      <td>(Reuters) - A U.S. appeals court in Washington...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 26, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>19</th>\n",
+              "      <td>Treasury Secretary Mnuchin was sent gift-wrapp...</td>\n",
+              "      <td>(Reuters) - A gift-wrapped package addressed t...</td>\n",
+              "      <td>politicsNews</td>\n",
+              "      <td>December 24, 2017</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>\n",
+              "    <div class=\"colab-df-buttons\">\n",
+              "\n",
+              "  <div class=\"colab-df-container\">\n",
+              "    <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-d7e0abaf-f74a-4206-a103-b8105bbab8c2')\"\n",
+              "            title=\"Convert this dataframe to an interactive table.\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\">\n",
+              "    <path d=\"M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z\"/>\n",
+              "  </svg>\n",
+              "    </button>\n",
+              "\n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-buttons div {\n",
+              "      margin-bottom: 4px;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "    <script>\n",
+              "      const buttonEl =\n",
+              "        document.querySelector('#df-d7e0abaf-f74a-4206-a103-b8105bbab8c2 button.colab-df-convert');\n",
+              "      buttonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "      async function convertToInteractive(key) {\n",
+              "        const element = document.querySelector('#df-d7e0abaf-f74a-4206-a103-b8105bbab8c2');\n",
+              "        const dataTable =\n",
+              "          await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                    [key], {});\n",
+              "        if (!dataTable) return;\n",
+              "\n",
+              "        const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "          '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "          + ' to learn more about interactive tables.';\n",
+              "        element.innerHTML = '';\n",
+              "        dataTable['output_type'] = 'display_data';\n",
+              "        await google.colab.output.renderOutput(dataTable, element);\n",
+              "        const docLink = document.createElement('div');\n",
+              "        docLink.innerHTML = docLinkHtml;\n",
+              "        element.appendChild(docLink);\n",
+              "      }\n",
+              "    </script>\n",
+              "  </div>\n",
+              "\n",
+              "\n",
+              "<div id=\"df-e7e26b16-c840-49c4-b0b9-b3c781f2d248\">\n",
+              "  <button class=\"colab-df-quickchart\" onclick=\"quickchart('df-e7e26b16-c840-49c4-b0b9-b3c781f2d248')\"\n",
+              "            title=\"Suggest charts\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "     width=\"24px\">\n",
+              "    <g>\n",
+              "        <path d=\"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z\"/>\n",
+              "    </g>\n",
+              "</svg>\n",
+              "  </button>\n",
+              "\n",
+              "<style>\n",
+              "  .colab-df-quickchart {\n",
+              "      --bg-color: #E8F0FE;\n",
+              "      --fill-color: #1967D2;\n",
+              "      --hover-bg-color: #E2EBFA;\n",
+              "      --hover-fill-color: #174EA6;\n",
+              "      --disabled-fill-color: #AAA;\n",
+              "      --disabled-bg-color: #DDD;\n",
+              "  }\n",
+              "\n",
+              "  [theme=dark] .colab-df-quickchart {\n",
+              "      --bg-color: #3B4455;\n",
+              "      --fill-color: #D2E3FC;\n",
+              "      --hover-bg-color: #434B5C;\n",
+              "      --hover-fill-color: #FFFFFF;\n",
+              "      --disabled-bg-color: #3B4455;\n",
+              "      --disabled-fill-color: #666;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart {\n",
+              "    background-color: var(--bg-color);\n",
+              "    border: none;\n",
+              "    border-radius: 50%;\n",
+              "    cursor: pointer;\n",
+              "    display: none;\n",
+              "    fill: var(--fill-color);\n",
+              "    height: 32px;\n",
+              "    padding: 0;\n",
+              "    width: 32px;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart:hover {\n",
+              "    background-color: var(--hover-bg-color);\n",
+              "    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "    fill: var(--button-hover-fill-color);\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart-complete:disabled,\n",
+              "  .colab-df-quickchart-complete:disabled:hover {\n",
+              "    background-color: var(--disabled-bg-color);\n",
+              "    fill: var(--disabled-fill-color);\n",
+              "    box-shadow: none;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-spinner {\n",
+              "    border: 2px solid var(--fill-color);\n",
+              "    border-color: transparent;\n",
+              "    border-bottom-color: var(--fill-color);\n",
+              "    animation:\n",
+              "      spin 1s steps(1) infinite;\n",
+              "  }\n",
+              "\n",
+              "  @keyframes spin {\n",
+              "    0% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "      border-left-color: var(--fill-color);\n",
+              "    }\n",
+              "    20% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    30% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    40% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    60% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    80% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "    90% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "  }\n",
+              "</style>\n",
+              "\n",
+              "  <script>\n",
+              "    async function quickchart(key) {\n",
+              "      const quickchartButtonEl =\n",
+              "        document.querySelector('#' + key + ' button');\n",
+              "      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.\n",
+              "      quickchartButtonEl.classList.add('colab-df-spinner');\n",
+              "      try {\n",
+              "        const charts = await google.colab.kernel.invokeFunction(\n",
+              "            'suggestCharts', [key], {});\n",
+              "      } catch (error) {\n",
+              "        console.error('Error during call to suggestCharts:', error);\n",
+              "      }\n",
+              "      quickchartButtonEl.classList.remove('colab-df-spinner');\n",
+              "      quickchartButtonEl.classList.add('colab-df-quickchart-complete');\n",
+              "    }\n",
+              "    (() => {\n",
+              "      let quickchartButtonEl =\n",
+              "        document.querySelector('#df-e7e26b16-c840-49c4-b0b9-b3c781f2d248 button');\n",
+              "      quickchartButtonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "    })();\n",
+              "  </script>\n",
+              "</div>\n",
+              "\n",
+              "    </div>\n",
+              "  </div>\n"
+            ],
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "dataframe",
+              "variable_name": "true_df",
+              "summary": "{\n  \"name\": \"true_df\",\n  \"rows\": 21417,\n  \"fields\": [\n    {\n      \"column\": \"title\",\n      \"properties\": {\n        \"dtype\": \"string\",\n        \"num_unique_values\": 20826,\n        \"samples\": [\n          \"German, Turkish foreign ministers meet after detainee released\",\n          \"Kremlin calls North Korea's latest missile launch another 'provocation'\",\n          \"Transgender soldiers, veterans shaken by Trump's ban on their service\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"text\",\n      \"properties\": {\n        \"dtype\": \"string\",\n        \"num_unique_values\": 21192,\n        \"samples\": [\n          \"WASHINGTON (Reuters) - A majority of the U.S. Senate on Tuesday backed a new round of disaster aid to help Puerto Rico and several states recover from damage from hurricanes and wildfires. The legislation would provide $36.5 billion in emergency relief as Puerto Rico in particular struggles to regain electricity and other basic services following destructive hurricanes. The House of Representatives approved the bill earlier this month. The Trump administration already has indicated it will seek another round of emergency relief from Congress. \",\n          \"BUDAPEST (Reuters) - About a thousand Hungarians protested on Friday against a crackdown on the main opposition party Jobbik which has been  threatened by a record political campaign fine that the party leader describes as a  death sentence  for democracy. Despite the gloomy rhetoric and Jobbik saying it was fighting for survival, support for the demonstration was well down on other similar rallies over the past year. Hungarians will vote for a new parliament in April and Prime Minister Viktor Orban s conservative, anti-migrant Fidesz party is far ahead in the polls, with Jobbik its nearest rival. Jobbik, once on the far right, has turned toward the center in a bid to attract more support and is now campaigning nationwide against Orban, depicting him as the leader of a criminal gang. Orban, rejecting the charges, says his financial standing is  an open book . Last week the state audit office (ASZ) ruled Jobbik had bought political posters far below market prices, breaching rules on political funding, then it slapped a 663 million forint ($2.5 million) penalty on the party. The protesters, waving Jobbik flags and posters deriding the ruling elite, gathered outside the headquarters of Orban s Fidesz party.  What we see unfolding is not an audit office investigation. It is not an official penalty. This is a death sentence with Jobbik s name on it. But in reality, it is a death sentence for Hungarian democracy,  Jobbiik leader Gabor Vona told the crowd. A government spokesman could not comment immediately on his remarks. ASZ chairman Laszlo Domokos is a former Fidesz lawmaker, whom Jobbik and other critics accuse of making decisions in favor of Orban. The audit office denies that. On Friday, ASZ again called on Jobbik to submit information that would challenge its findings, saying it acted fully within its rights throughout the probe. The ruling Fidesz party and the government have denied any involvement in the ASZ probe.  This case has nothing to do with the election campaign,  Orban aide Janos Lazar said on Thursday. For over a year Fidesz has targeted Jobbik, whose move to the center could upend the longstanding status quo of a dominant Fidesz with weaker opponents to its left and its right, said analyst Zoltan Novak at the Centre for Fair Political Analysis. Gyorgy Illes, a 67-year-old pensioner attending the rally, said he used to be a Socialist supporter but got disillusioned as the party struggled to overcome its internal divisions.  This ASZ probe is a clear sign that Orban is way past any remedy. It is a ruthless attack on everything we hold dear. Democracy, the rule of law, equality, you name it,  he said. \",\n          \"BEIJING/TAIPEI (Reuters) - China accused the United States on Thursday of interfering in its internal affairs and said it had lodged a complaint after U.S. President Donald Trump signed into law an act laying the groundwork for possible U.S. navy visits to self-ruled Taiwan. Tensions have risen in recent days after a senior Chinese diplomat threatened China would invade Taiwan if any U.S. warships made port visits to the island which China claims as its own territory. On Monday, Chinese jets carried out  island encirclement patrols  around Taiwan, with state media showing pictures of bombers with cruise missiles slung under their wings as they carried out the exercise. On Tuesday, Trump signed into law the National Defense Authorization Act for the 2018 fiscal year, which authorizes the possibility of mutual visits by navy vessels between Taiwan and the United States. Such visits would be the first since the United States ended formal diplomatic relations with Taiwan in 1979 and established ties with Beijing. Chinese Foreign Ministry spokesman Lu Kang said while the Taiwan sections of the law were not legally binding, they seriously violate the  One China  policy and  constitute an interference in China s internal affairs .   China is resolutely opposed to this, and we have already lodged stern representations with the U.S. government,  Lu told a daily news briefing. China is firmly opposed to any official exchanges, military contact, or arms sales between Taiwan and the United States, he added.  Proudly democratic Taiwan has become increasingly concerned with the ramped up Chinese military presence, that has included several rounds of Chinese air force drills around the island in recent months.  Taiwan is confident of its defenses and responded quickly to the Chinese air force drills this week, its government said, denouncing the rise in China s military deployments as irresponsible. Taiwan presidential spokesman Alex Huang, speaking to Taiwan media in comments reported late on Wednesday, said the defense ministry had kept a close watch on the patrols and responded immediately and properly. Taiwan  can ensure there are no concerns at all about national security, and people can rest assured , Huang said. Both sides of the narrow Taiwan Strait, which separates Taiwan from its giant neighbor, have a responsibility to protect peace and stability, he added.  Such a raised military posture that may impact upon and harm regional peace and stability and cross-strait ties does not give a feeling of responsibility, and the international community does not look favorably upon this,  Huang was quoted as saying. Relations have soured considerably since Tsai Ing-wen, who leads Taiwan s independence-leaning Democratic Progressive Party, won presidential elections last year. China suspects Tsai wants to declare the island s formal independence, a red line for Beijing. Tsai says she wants to maintain peace with China but will defend Taiwan s security. Taiwan is well equipped with mostly U.S. weapons but has been pressing for more advanced equipment to deal with what it sees as a rising threat from China. The United States is bound by law to provide the island with the means to defend itself. China has never renounced the use of force to bring Taiwan under its control. \"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"subject\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 2,\n        \"samples\": [\n          \"worldnews\",\n          \"politicsNews\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"date\",\n      \"properties\": {\n        \"dtype\": \"object\",\n        \"num_unique_values\": 716,\n        \"samples\": [\n          \"September 2, 2017 \",\n          \"February 2, 2017 \"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    }\n  ]\n}"
+            }
+          },
+          "metadata": {},
+          "execution_count": 8
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "fake_df.head(15)"
+      ],
+      "metadata": {
+        "id": "fk2gbLj0uEg8",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 832
+        },
+        "outputId": "72a42183-db1d-4a37-d2dd-421eff93a207"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "                                                title  \\\n",
+              "0    Donald Trump Sends Out Embarrassing New Year’...   \n",
+              "1    Drunk Bragging Trump Staffer Started Russian ...   \n",
+              "2    Sheriff David Clarke Becomes An Internet Joke...   \n",
+              "3    Trump Is So Obsessed He Even Has Obama’s Name...   \n",
+              "4    Pope Francis Just Called Out Donald Trump Dur...   \n",
+              "5    Racist Alabama Cops Brutalize Black Boy While...   \n",
+              "6    Fresh Off The Golf Course, Trump Lashes Out A...   \n",
+              "7    Trump Said Some INSANELY Racist Stuff Inside ...   \n",
+              "8    Former CIA Director Slams Trump Over UN Bully...   \n",
+              "9    WATCH: Brand-New Pro-Trump Ad Features So Muc...   \n",
+              "10   Papa John’s Founder Retires, Figures Out Raci...   \n",
+              "11   WATCH: Paul Ryan Just Told Us He Doesn’t Care...   \n",
+              "12   Bad News For Trump — Mitch McConnell Says No ...   \n",
+              "13   WATCH: Lindsey Graham Trashes Media For Portr...   \n",
+              "14   Heiress To Disney Empire Knows GOP Scammed Us...   \n",
+              "\n",
+              "                                                 text subject  \\\n",
+              "0   Donald Trump just couldn t wish all Americans ...    News   \n",
+              "1   House Intelligence Committee Chairman Devin Nu...    News   \n",
+              "2   On Friday, it was revealed that former Milwauk...    News   \n",
+              "3   On Christmas day, Donald Trump announced that ...    News   \n",
+              "4   Pope Francis used his annual Christmas Day mes...    News   \n",
+              "5   The number of cases of cops brutalizing and ki...    News   \n",
+              "6   Donald Trump spent a good portion of his day a...    News   \n",
+              "7   In the wake of yet another court decision that...    News   \n",
+              "8   Many people have raised the alarm regarding th...    News   \n",
+              "9   Just when you might have thought we d get a br...    News   \n",
+              "10  A centerpiece of Donald Trump s campaign, and ...    News   \n",
+              "11  Republicans are working overtime trying to sel...    News   \n",
+              "12  Republicans have had seven years to come up wi...    News   \n",
+              "13  The media has been talking all day about Trump...    News   \n",
+              "14  Abigail Disney is an heiress with brass ovarie...    News   \n",
+              "\n",
+              "                 date  \n",
+              "0   December 31, 2017  \n",
+              "1   December 31, 2017  \n",
+              "2   December 30, 2017  \n",
+              "3   December 29, 2017  \n",
+              "4   December 25, 2017  \n",
+              "5   December 25, 2017  \n",
+              "6   December 23, 2017  \n",
+              "7   December 23, 2017  \n",
+              "8   December 22, 2017  \n",
+              "9   December 21, 2017  \n",
+              "10  December 21, 2017  \n",
+              "11  December 21, 2017  \n",
+              "12  December 21, 2017  \n",
+              "13  December 20, 2017  \n",
+              "14  December 20, 2017  "
+            ],
+            "text/html": [
+              "\n",
+              "  <div id=\"df-39e0d784-5b56-4903-b351-9ffc33632711\" class=\"colab-df-container\">\n",
+              "    <div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>title</th>\n",
+              "      <th>text</th>\n",
+              "      <th>subject</th>\n",
+              "      <th>date</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>Donald Trump Sends Out Embarrassing New Year’...</td>\n",
+              "      <td>Donald Trump just couldn t wish all Americans ...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 31, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>Drunk Bragging Trump Staffer Started Russian ...</td>\n",
+              "      <td>House Intelligence Committee Chairman Devin Nu...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 31, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>Sheriff David Clarke Becomes An Internet Joke...</td>\n",
+              "      <td>On Friday, it was revealed that former Milwauk...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 30, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>Trump Is So Obsessed He Even Has Obama’s Name...</td>\n",
+              "      <td>On Christmas day, Donald Trump announced that ...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 29, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>Pope Francis Just Called Out Donald Trump Dur...</td>\n",
+              "      <td>Pope Francis used his annual Christmas Day mes...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 25, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>Racist Alabama Cops Brutalize Black Boy While...</td>\n",
+              "      <td>The number of cases of cops brutalizing and ki...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 25, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>Fresh Off The Golf Course, Trump Lashes Out A...</td>\n",
+              "      <td>Donald Trump spent a good portion of his day a...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 23, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>Trump Said Some INSANELY Racist Stuff Inside ...</td>\n",
+              "      <td>In the wake of yet another court decision that...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 23, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>Former CIA Director Slams Trump Over UN Bully...</td>\n",
+              "      <td>Many people have raised the alarm regarding th...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 22, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>WATCH: Brand-New Pro-Trump Ad Features So Muc...</td>\n",
+              "      <td>Just when you might have thought we d get a br...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 21, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>10</th>\n",
+              "      <td>Papa John’s Founder Retires, Figures Out Raci...</td>\n",
+              "      <td>A centerpiece of Donald Trump s campaign, and ...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 21, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>11</th>\n",
+              "      <td>WATCH: Paul Ryan Just Told Us He Doesn’t Care...</td>\n",
+              "      <td>Republicans are working overtime trying to sel...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 21, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>12</th>\n",
+              "      <td>Bad News For Trump — Mitch McConnell Says No ...</td>\n",
+              "      <td>Republicans have had seven years to come up wi...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 21, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>13</th>\n",
+              "      <td>WATCH: Lindsey Graham Trashes Media For Portr...</td>\n",
+              "      <td>The media has been talking all day about Trump...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 20, 2017</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>14</th>\n",
+              "      <td>Heiress To Disney Empire Knows GOP Scammed Us...</td>\n",
+              "      <td>Abigail Disney is an heiress with brass ovarie...</td>\n",
+              "      <td>News</td>\n",
+              "      <td>December 20, 2017</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "</div>\n",
+              "    <div class=\"colab-df-buttons\">\n",
+              "\n",
+              "  <div class=\"colab-df-container\">\n",
+              "    <button class=\"colab-df-convert\" onclick=\"convertToInteractive('df-39e0d784-5b56-4903-b351-9ffc33632711')\"\n",
+              "            title=\"Convert this dataframe to an interactive table.\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "  <svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\" viewBox=\"0 -960 960 960\">\n",
+              "    <path d=\"M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z\"/>\n",
+              "  </svg>\n",
+              "    </button>\n",
+              "\n",
+              "  <style>\n",
+              "    .colab-df-container {\n",
+              "      display:flex;\n",
+              "      gap: 12px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert {\n",
+              "      background-color: #E8F0FE;\n",
+              "      border: none;\n",
+              "      border-radius: 50%;\n",
+              "      cursor: pointer;\n",
+              "      display: none;\n",
+              "      fill: #1967D2;\n",
+              "      height: 32px;\n",
+              "      padding: 0 0 0 0;\n",
+              "      width: 32px;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-convert:hover {\n",
+              "      background-color: #E2EBFA;\n",
+              "      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "      fill: #174EA6;\n",
+              "    }\n",
+              "\n",
+              "    .colab-df-buttons div {\n",
+              "      margin-bottom: 4px;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert {\n",
+              "      background-color: #3B4455;\n",
+              "      fill: #D2E3FC;\n",
+              "    }\n",
+              "\n",
+              "    [theme=dark] .colab-df-convert:hover {\n",
+              "      background-color: #434B5C;\n",
+              "      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);\n",
+              "      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));\n",
+              "      fill: #FFFFFF;\n",
+              "    }\n",
+              "  </style>\n",
+              "\n",
+              "    <script>\n",
+              "      const buttonEl =\n",
+              "        document.querySelector('#df-39e0d784-5b56-4903-b351-9ffc33632711 button.colab-df-convert');\n",
+              "      buttonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "\n",
+              "      async function convertToInteractive(key) {\n",
+              "        const element = document.querySelector('#df-39e0d784-5b56-4903-b351-9ffc33632711');\n",
+              "        const dataTable =\n",
+              "          await google.colab.kernel.invokeFunction('convertToInteractive',\n",
+              "                                                    [key], {});\n",
+              "        if (!dataTable) return;\n",
+              "\n",
+              "        const docLinkHtml = 'Like what you see? Visit the ' +\n",
+              "          '<a target=\"_blank\" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'\n",
+              "          + ' to learn more about interactive tables.';\n",
+              "        element.innerHTML = '';\n",
+              "        dataTable['output_type'] = 'display_data';\n",
+              "        await google.colab.output.renderOutput(dataTable, element);\n",
+              "        const docLink = document.createElement('div');\n",
+              "        docLink.innerHTML = docLinkHtml;\n",
+              "        element.appendChild(docLink);\n",
+              "      }\n",
+              "    </script>\n",
+              "  </div>\n",
+              "\n",
+              "\n",
+              "<div id=\"df-591424ac-a0c5-43b6-a75e-199372658b12\">\n",
+              "  <button class=\"colab-df-quickchart\" onclick=\"quickchart('df-591424ac-a0c5-43b6-a75e-199372658b12')\"\n",
+              "            title=\"Suggest charts\"\n",
+              "            style=\"display:none;\">\n",
+              "\n",
+              "<svg xmlns=\"http://www.w3.org/2000/svg\" height=\"24px\"viewBox=\"0 0 24 24\"\n",
+              "     width=\"24px\">\n",
+              "    <g>\n",
+              "        <path d=\"M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z\"/>\n",
+              "    </g>\n",
+              "</svg>\n",
+              "  </button>\n",
+              "\n",
+              "<style>\n",
+              "  .colab-df-quickchart {\n",
+              "      --bg-color: #E8F0FE;\n",
+              "      --fill-color: #1967D2;\n",
+              "      --hover-bg-color: #E2EBFA;\n",
+              "      --hover-fill-color: #174EA6;\n",
+              "      --disabled-fill-color: #AAA;\n",
+              "      --disabled-bg-color: #DDD;\n",
+              "  }\n",
+              "\n",
+              "  [theme=dark] .colab-df-quickchart {\n",
+              "      --bg-color: #3B4455;\n",
+              "      --fill-color: #D2E3FC;\n",
+              "      --hover-bg-color: #434B5C;\n",
+              "      --hover-fill-color: #FFFFFF;\n",
+              "      --disabled-bg-color: #3B4455;\n",
+              "      --disabled-fill-color: #666;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart {\n",
+              "    background-color: var(--bg-color);\n",
+              "    border: none;\n",
+              "    border-radius: 50%;\n",
+              "    cursor: pointer;\n",
+              "    display: none;\n",
+              "    fill: var(--fill-color);\n",
+              "    height: 32px;\n",
+              "    padding: 0;\n",
+              "    width: 32px;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart:hover {\n",
+              "    background-color: var(--hover-bg-color);\n",
+              "    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);\n",
+              "    fill: var(--button-hover-fill-color);\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-quickchart-complete:disabled,\n",
+              "  .colab-df-quickchart-complete:disabled:hover {\n",
+              "    background-color: var(--disabled-bg-color);\n",
+              "    fill: var(--disabled-fill-color);\n",
+              "    box-shadow: none;\n",
+              "  }\n",
+              "\n",
+              "  .colab-df-spinner {\n",
+              "    border: 2px solid var(--fill-color);\n",
+              "    border-color: transparent;\n",
+              "    border-bottom-color: var(--fill-color);\n",
+              "    animation:\n",
+              "      spin 1s steps(1) infinite;\n",
+              "  }\n",
+              "\n",
+              "  @keyframes spin {\n",
+              "    0% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "      border-left-color: var(--fill-color);\n",
+              "    }\n",
+              "    20% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    30% {\n",
+              "      border-color: transparent;\n",
+              "      border-left-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    40% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-top-color: var(--fill-color);\n",
+              "    }\n",
+              "    60% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "    }\n",
+              "    80% {\n",
+              "      border-color: transparent;\n",
+              "      border-right-color: var(--fill-color);\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "    90% {\n",
+              "      border-color: transparent;\n",
+              "      border-bottom-color: var(--fill-color);\n",
+              "    }\n",
+              "  }\n",
+              "</style>\n",
+              "\n",
+              "  <script>\n",
+              "    async function quickchart(key) {\n",
+              "      const quickchartButtonEl =\n",
+              "        document.querySelector('#' + key + ' button');\n",
+              "      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.\n",
+              "      quickchartButtonEl.classList.add('colab-df-spinner');\n",
+              "      try {\n",
+              "        const charts = await google.colab.kernel.invokeFunction(\n",
+              "            'suggestCharts', [key], {});\n",
+              "      } catch (error) {\n",
+              "        console.error('Error during call to suggestCharts:', error);\n",
+              "      }\n",
+              "      quickchartButtonEl.classList.remove('colab-df-spinner');\n",
+              "      quickchartButtonEl.classList.add('colab-df-quickchart-complete');\n",
+              "    }\n",
+              "    (() => {\n",
+              "      let quickchartButtonEl =\n",
+              "        document.querySelector('#df-591424ac-a0c5-43b6-a75e-199372658b12 button');\n",
+              "      quickchartButtonEl.style.display =\n",
+              "        google.colab.kernel.accessAllowed ? 'block' : 'none';\n",
+              "    })();\n",
+              "  </script>\n",
+              "</div>\n",
+              "\n",
+              "    </div>\n",
+              "  </div>\n"
+            ],
+            "application/vnd.google.colaboratory.intrinsic+json": {
+              "type": "dataframe",
+              "variable_name": "fake_df",
+              "summary": "{\n  \"name\": \"fake_df\",\n  \"rows\": 23481,\n  \"fields\": [\n    {\n      \"column\": \"title\",\n      \"properties\": {\n        \"dtype\": \"string\",\n        \"num_unique_values\": 17903,\n        \"samples\": [\n          \" Fox News Mocked Into Oblivion After This F*cking STUPID Attempt To Make Steve Bannon Look Sane (TWEETS)\",\n          \"BREAKING: FL GOV RICK SCOTT Calls for FBI Director to Resign\",\n          \" WATCH: Mike Pence\\u2019s Photo Op With Puerto Rico Survivors Just Went TERRIBLY Wrong (VIDEO)\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"text\",\n      \"properties\": {\n        \"dtype\": \"string\",\n        \"num_unique_values\": 17455,\n        \"samples\": [\n          \"The moral decay continues The Kapiolani Medical Center for Women and Children at the University of Hawaii is currently recruiting pregnant girls and women to participate in second-trimester abortions to measure their bleeding during the operation, with and without antihemorrhagic drugs. According to the Clinical Trials website, run by the National Institutes of Health, participants must be at least 14 years old and 18-24 weeks pregnant.The controversial study, led by Bliss Kaneshiro, MD and Kate Whitehouse, DO, will monitor bleeding during D&E abortions to determine the effects of the drug oxytocin, commonly used to minimize blood loss and decrease the risk of hemorrhage.The clinical trial, called  Effects of Oxytocin on Bleeding Outcomes during Dilation and Evacuation  began in October 2014 and is a collaboration between UH, Society of Family Planning and the University of Washington.The Society of Family Planning funds a number of similar research projects, such as experimenting with the dosage of Misoprostol, a uterine contracting agent, prior to surgical abortions at 13-18 weeks and exploring umbilical cord injections to produce fetal death prior to late-term abortions.In the UH study, researchers will carry out a  randomized, double-blinded, placebo-controlled trials,  to determine the effect of oxytocin s use on uterine bleeding, meaning that they will either provide or deny intravenous oxytocin to the women.Reports suggest that some doctors are concerned that withholding oxytocin during surgery may put patients, especially teen girls, at risk. This study is reminiscent of Nazi concentration camp experiments. I pity the poor women who are being treated like lab rats, especially those who are denied the drug to reduce hemorrhaging,  said Troy Newman, President of Operation Rescue.Dilation and evacuation abortions are surgical procedures that involve dismembering the pre-born baby with forceps, scraping the inside of the uterus with a curette to remove any residuals and finally suctioning out the womb to make sure the contents are completely removed.After the abortion, the corpse of the fetus is reassembled and examined to ensure everything was successfully removed and that the abortion was complete.The study is hoping to attract up to 166 test subjects and is expected to conclude in July 2015.Via: Breitbart News\",\n          \"CNN was quick to scoop up Corey Lewandowski after Donald Trump kicked him out of his role as campaign manager, but his first week on the job is going pretty much exactly how you would expect it to go   terribly.Not only has Lewandowski proven himself to be pretty much like a paid spokesman for Trump, but his defense of the disgraced GOP candidate isn t being received well. Earlier this week, Lewandowski revealed that he was under contract and couldn t criticize The Donald, even after being fired from the campaign. Today, Lewandowski got called out by Hillary Clinton surrogate Christine Quinn for hyping Trump up to be an expert on the Brexit decision   a suggestion that was clearly false.On Monday s edition of CNN s New Day, Lewandowski made another pathetic defense of Trump by trying to reframe the candidate s disgusting reaction to Brexit, where he mostly spoke about how much the decision would be good for his Scotland golf resort. Lewandowski s defense was: Obviously the U.S. dollar has become much stronger now against the British pound. If you re going to spend money in Europe, now would actually be a good time to go with the fall of the pound.What you have is a world view, so what you have is someone who is saying,  Let s look at this from the U.S. perspective. If you want to go and travel overseas   just from a monetary perspective   now is the right time to do that because what you re getting is more for your dollar. Quinn wasn t having it. She ripped into Lewandowski, firing back, Donald Trump is not running to be travel agent of the world, he s running to be president of the United States.  She continued: What he said wasn t a commentary on international markets, it was,  When the pound goes down, more people will come to my golf course. Donald Trump s main concern isn t the international markets, it isn t the impact that Brexit will have on hard working Americans  401Ks, it s himself. How can he make more money, how can he put more money in his bank account? Lewandowski compared the Brexit decision to Trump s rise in the GOP, and Quinn once again called him out and put him back in his place. She said: Trump touted that he saw this coming. That s ridiculous because when he was first asked about Brexit by the press, he didn t appear to know what it was. Lewandowski tried to counter by insisting that People are too smart, they are tired of being told what to do.  He then tried to commend Trump for being a selfish moron: You know what Donald Trump said about Brexit? What he said was, you don t have to listen to me because it s not my decision. He didn t weigh in like Hillary Clinton did, like Barack Obama did, saying that you can t do this. Quinn fought back, Because he didn t know what it was. Lewandowski was fighting a losing battle. Trump s reaction to Brexit was just as terrifying as it was humorous   it truly proved that Trump knows nothing about foreign affairs, and hasn t spent any time educating himself since the beginning of his presidential candidacy. If only some of the hours he spent getting into fights on Twitter were being used for learning about how the world works. But instead, he once again exposed himself as an unfit choice for President. And when people like Lewandowski try to make sense of his idiocy, they only make themselves look equally foolish.You can watch the embarrassing video below:Featured image via screen capture\",\n          \"A Michigan woman decided to defend against tyranny? when she and another shopper couldn t agree over who got to buy the last notebook on the shelf at the Novi Towne Center store.According to ABC 13, the brawl   yes, brawl    involved two Farmington Hills residents, ages 46 and 32, and a mother and daughter from South Lyon, ages 51 and 20. In other words, these were all grown adults who should have known better but hey   there was only one notebook on the shelf, and we ve all seen what happens in those post-apocalyptic movies when a store is down to the last gallon of milk, right?Two of the women, one of whom was the unnamed 20-year-old, reached for the notebook at the same time. The 46 and 32-year-olds apparently decided that she wasn t getting their goddamn notebook and began pulling her hair.Then, because this had almost hit peak  trailer park,  the 20-year-old s mother decided to go for bonus points by pulling out her gun. Fortunately, someone pushed her aside before she could do any harm.This is one of the NRA s  responsible gun owners  (conservatives can t dismiss this one, as it is confirmed that she is a concealed carry permit holder)   ready to leap into action at the most minor sign of danger and make things worse by turning the situation potentially deadly.Watch it happen below:Featured image via screengrab\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"subject\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 6,\n        \"samples\": [\n          \"News\",\n          \"politics\",\n          \"Middle-east\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    },\n    {\n      \"column\": \"date\",\n      \"properties\": {\n        \"dtype\": \"category\",\n        \"num_unique_values\": 1681,\n        \"samples\": [\n          \"Jun 5, 2015\",\n          \"August 28, 2016\",\n          \"June 3, 2017\"\n        ],\n        \"semantic_type\": \"\",\n        \"description\": \"\"\n      }\n    }\n  ]\n}"
+            }
+          },
+          "metadata": {},
+          "execution_count": 9
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "true_df.count()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "w35L2XXgP6qP",
+        "outputId": "9d0b0c5c-f65e-4401-a546-f87731ffb267"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "title      21417\n",
+              "text       21417\n",
+              "subject    21417\n",
+              "date       21417\n",
+              "dtype: int64"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 10
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "fake_df.count()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "DsBy3z6cQdML",
+        "outputId": "9831ca85-5b41-439c-bad1-eeb7ab4a1dd8"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "title      23481\n",
+              "text       23481\n",
+              "subject    23481\n",
+              "date       23481\n",
+              "dtype: int64"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 11
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#finding missing datas\n",
+        "def missing_data(data):\n",
+        "  total = len(data)\n",
+        "  for col in data.columns:\n",
+        "    missing = data[col].isnull().sum()\n",
+        "    print('{} - {}%'.format(col, round(missing/total*100)))"
+      ],
+      "metadata": {
+        "id": "M9F-OAszQflj"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "missing_data(true_df)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "CI3n-vOxQnsd",
+        "outputId": "1808d1ed-a05a-4451-ebe7-18cc0a4f4373"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "title - 0%\n",
+            "text - 0%\n",
+            "subject - 0%\n",
+            "date - 0%\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "missing_data(fake_df)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "YtOIlgFvREO6",
+        "outputId": "3a60597d-5f69-4d79-8b14-a93abfe950ec"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "title - 0%\n",
+            "text - 0%\n",
+            "subject - 0%\n",
+            "date - 0%\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#removing duplicates\n",
+        "def remove_duplicates(data):\n",
+        "  print(\"\\nCleaning Summary\\n{}\".format(\"-\"*35))\n",
+        "  print(f\"Before: {data.shape}\")\n",
+        "  data.drop_duplicates(inplace=True)\n",
+        "  print(f\"After: {data.shape}\")"
+      ],
+      "metadata": {
+        "id": "SrU161TpRGsa"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "remove_duplicates(true_df)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Hu6Ekx6_RwlA",
+        "outputId": "976f7bc0-e4ac-4826-eaaf-5a608d41a285"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\n",
+            "Cleaning Summary\n",
+            "-----------------------------------\n",
+            "Before: (21417, 4)\n",
+            "After: (21211, 4)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "remove_duplicates(fake_df)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "X12ikzvqSGL1",
+        "outputId": "3bd4cfec-9b6d-4b2e-dc56-4672bab5d568"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "\n",
+            "Cleaning Summary\n",
+            "-----------------------------------\n",
+            "Before: (23481, 4)\n",
+            "After: (23478, 4)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df_merged = pd.merge(fake_df, true_df, how='outer')"
+      ],
+      "metadata": {
+        "id": "Ywn91eVaSMyb"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#data Visualization\n",
+        "\n",
+        "import matplotlib.pyplot as plt\n",
+        "import seaborn as sns\n",
+        "sns.set(style = \"ticks\",color_codes = True)\n",
+        "\n",
+        "fig_dims = (20,4.8)\n",
+        "fig, ax = plt.subplots(figsize = fig_dims)\n",
+        "sns.countplot(x = 'subject', ax=ax,data = df_merged);\n",
+        "plt.show()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 190
+        },
+        "id": "iXbkxcObShU6",
+        "outputId": "3173cbad-e925-4a2b-9c34-05431c2f750e"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<Figure size 2000x480 with 1 Axes>"
+            ],
+            "image/png": "iVBORw0KGgoAAAANSUhEUgAABnYAAAG6CAYAAAA1T3gpAAAAOXRFWHRTb2Z0d2FyZQBNYXRwbG90bGliIHZlcnNpb24zLjcuMSwgaHR0cHM6Ly9tYXRwbG90bGliLm9yZy/bCgiHAAAACXBIWXMAAA9hAAAPYQGoP6dpAABa1UlEQVR4nO3de9zX8/0/8MfV4UrUFbUyp6hGU0ql40qofaWwg2lyyKmJOTSGiRE2c5rTOumwnGZfDGNftJiGxnwRYWYOX4U0ljlcVwmdrt8f/a7PXK4iKZdP3e+3Wzc+7/fr/f4839f1fl2f9+fz+Lxe75LKysrKAAAAAAAA8KVXp7YLAAAAAAAAYPUIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEjUq+0CNlRdu3bN4sWL07x589ouBQAAAAAAqGVvvvlmSktLM3PmzE9sJ9ipJR9++GGWLVtW22UAAAAAAABfAkuXLk1lZeWnthPs1JIWLVokSaZPn17LlQAAAAAAALWtf//+q9XOPXYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAABgPbN8eWVtl8AGwrkGX7x6tV0AAAAAALB21alTknE3PJR588truxTWY1u1aJLjDuxd22XABkewAwAAAADroXnzy/PyvHdquwwA1jJTsQEAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJH4UgU7r7zySkaNGpVvf/vbadeuXfbZZ5+Vtrv55pszYMCAdOjQId/61rdy33331WizYMGCnHHGGenevXs6d+6cESNGZP78+TXaPfHEEznggAPSsWPH7LHHHpk0aVIqKyurtamsrMykSZOy++67p2PHjjnggAPy5JNPrpVjBgAAAAAAWF1fqmDnxRdfzAMPPJBtt902bdq0WWmbu+66K2eddVYGDhyYyZMnp1OnTjn++ONrBC0nnnhiHnrooZxzzjm55JJLMmfOnBx11FFZunRpoc0rr7ySYcOGpXnz5pk4cWIOO+ywjB49OldddVW1fU2ePDmjR4/O4YcfnokTJ6Z58+Y58sgjM3fu3LX+MwAAAAAAAFiVerVdwEf169cv3/zmN5MkI0eOzDPPPFOjzejRo7P33nvnxBNPTJL07NkzL7zwQsaNG5fJkycnSWbNmpUHH3wwU6ZMSZ8+fZIkrVq1yqBBg3LPPfdk0KBBSZIpU6Zks802y2WXXZbS0tL06tUrb7/9diZMmJChQ4emtLQ0H374YSZOnJgjjzwyhx9+eJJkl112yV577ZUpU6bknHPOWbc/FAAAAAAAgP/vSzVip06dTy5n7ty5efnllzNw4MBqywcNGpSHH344ixcvTpLMmDEjZWVl6d27d6FN69ats+OOO2bGjBmFZTNmzEj//v1TWlpabV8VFRWZNWtWkhVTtS1cuLDac5aWlua//uu/qu0LAAAAAABgXftSjdj5NLNnz06yYvTNR7Vp0yZLlizJ3Llz06ZNm8yePTutWrVKSUlJtXatW7cu7GPRokV5/fXX07p16xptSkpKMnv27PTo0aPQ/uPt2rRpk2uvvTYffPBBNtpoo5XW279//1Uey+uvv54ttthiNY4aAAAAAABghS/ViJ1PU15eniQpKyurtrzqcdX6ioqKNG7cuMb2TZo0KbRZsGDBSvdVWlqahg0bVttXaWlpGjRoUOM5KysrC+0AAAAAAADWtaIasVNspk+fvsp1nzSaBwAAAACAz2f58srUqVPy6Q3hc/qiz7WiCnaaNGmSZMVom+bNmxeWV1RUVFtfVlaWN954o8b25eXlhTZVI3qqRu5UWbx4cd5///1q+1q8eHE+/PDDaqN2KioqUlJSUmgHAAAAAMCXR506JRl3w0OZN9+sS6w7W7VokuMO7P2FPmdRBTtV97mZPXt2tXvezJ49O/Xr188222xTaPfwww+nsrKy2n125syZkx122CFJsvHGG2eLLbYo3EPno20qKysL+6/675w5c/L1r3+92nNuueWWq7y/DgAAAAAAtWve/PK8PO+d2i4D1qqiusfONttsk+222y7Tpk2rtnzq1Knp1atXSktLkyR9+/ZNeXl5Hn744UKbOXPm5Nlnn03fvn0Ly/r27Zvp06dnyZIl1fZVVlaWzp07J0m6dOmSRo0a5Y9//GOhzZIlS3LPPfdU2xcAAAAAAMC69qUasfP+++/ngQceSJLMmzcvCxcuLIQ43bt3T9OmTXPCCSfklFNOScuWLdOjR49MnTo1Tz/9dK6//vrCfjp37pw+ffrkjDPOyGmnnZYGDRrk8ssvT9u2bbPnnnsW2g0bNix33HFHTj755Bx44IF54YUXMmXKlJx00kmFkKhBgwY5+uijM2bMmDRt2jQ77LBDbrjhhrz77rsZNmzYF/jTAQAAAAAANnRfqmDnrbfeyo9+9KNqy6oeX3fddenRo0f22WefvP/++5k8eXImTZqUVq1aZezYsYURNlWuuOKKXHDBBRk1alSWLl2aPn365Mwzz0y9ev855G233TZTpkzJhRdemOHDh6dp06YZMWJEjjzyyGr7Ouqoo1JZWZmrrroqb7/9dnbcccdMmTKlMPUbAAAAAADAF6GksrKysraL2BD1798/STJ9+vRargQAAACA9dEZv5rq3iKsU9tttVnO/9Gg2i7jE+kHrGtrsx+sbm5QVPfYAQAAAAAA2JAJdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGBnPbF8eWVtl8AGwrkGAAAAAFB76tV2AawddeqUZNwND2Xe/PLaLoX12FYtmuS4A3vXdhkAAAAAABsswc56ZN788rw8753aLgMAAAAAAFhHTMUGAAAAAABQJAQ7AAAAAAAARUKwAwAAAAAAUCQEOwAAAAAAAEVCsAMAAAAAAFAkBDsAAAAAAABFQrADAAAAAABQJAQ7AAAAAAAARUKwAwAAAAAAUCQEOwAAAAAAAEVCsAMAAAAAAFAkBDsAAAAAAABFQrADAAAAAABQJAQ7AAAAAAAARUKwAwAAAAAAUCQEOwAAAAAAAEVCsAMAAAAAAFAkBDsAAAAAAABFQrADAAAAAABQJAQ7AAAAAAAARUKwAwAAAAAAUCQEOwAAAAAAAEVCsAMAAAAAAFAkBDsAAAAAAABFQrADAAAAAABQJIoy2Jk+fXoGDx6czp07p0+fPvnRj36UuXPn1mh38803Z8CAAenQoUO+9a1v5b777qvRZsGCBTnjjDPSvXv3dO7cOSNGjMj8+fNrtHviiSdywAEHpGPHjtljjz0yadKkVFZWrpPjAwAAAAAAWJmiC3YeeeSRHH/88fna176WcePG5Ywzzshzzz2XI488Mh988EGh3V133ZWzzjorAwcOzOTJk9OpU6ccf/zxefLJJ6vt78QTT8xDDz2Uc845J5dccknmzJmTo446KkuXLi20eeWVVzJs2LA0b948EydOzGGHHZbRo0fnqquu+qIOGwAAAAAAIPVqu4DP6q677sqWW26Z888/PyUlJUmSpk2b5rDDDsszzzyTrl27JklGjx6dvffeOyeeeGKSpGfPnnnhhRcybty4TJ48OUkya9asPPjgg5kyZUr69OmTJGnVqlUGDRqUe+65J4MGDUqSTJkyJZtttlkuu+yylJaWplevXnn77bczYcKEDB06NKWlpV/wTwEAAAAAANgQFd2InaVLl2aTTTYphDpJ0rhx4yQpTI02d+7cvPzyyxk4cGC1bQcNGpSHH344ixcvTpLMmDEjZWVl6d27d6FN69ats+OOO2bGjBmFZTNmzEj//v2rBTiDBg1KRUVFZs2atfYPEgAAAAAAYCWKbsTOfvvtlz/84Q/57W9/m29961t59913c9lll6Vdu3bp0qVLkmT27NlJVoy++ag2bdpkyZIlmTt3btq0aZPZs2enVatW1UKiZEW4U7WPRYsW5fXXX0/r1q1rtCkpKcns2bPTo0ePldbav3//VR7H66+/ni222OKzHTwAAAAAALBBK7oRO127ds3YsWNz6aWXpmvXrvnmN7+Zt956K5MnT07dunWTJOXl5UmSsrKyattWPa5aX1FRURjt81FNmjQptFmwYMFK91VaWpqGDRsW2gEAAAAAAKxrRTdi54knnshPfvKTfP/738/uu++ed999N+PHj8/w4cPz3//939loo41qu8SC6dOnr3LdJ43mAQAAAAAAWJmiC3bOO++89OzZMyNHjiws69SpU3bffff84Q9/yAEHHJAmTZokWTHapnnz5oV2FRUVSVJYX1ZWljfeeKPGc5SXlxfaVI3oqRq5U2Xx4sV5//33C+0AAAAAAADWtaKbiu2ll17K17/+9WrLvvrVr2azzTbLq6++miSF++FU3SenyuzZs1O/fv1ss802hXZz5sxJZWVltXZz5swp7GPjjTfOFltsUWNfVdt9/N47AAAAAAAA60rRBTtbbrllnn322WrL5s2bl3feeSdbbbVVkmSbbbbJdtttl2nTplVrN3Xq1PTq1SulpaVJkr59+6a8vDwPP/xwoc2cOXPy7LPPpm/fvoVlffv2zfTp07NkyZJq+yorK0vnzp3X+jECAAAAAACsTNFNxTZkyJCcf/75Oe+889KvX7+8++67ufLKK9OsWbMMHDiw0O6EE07IKaeckpYtW6ZHjx6ZOnVqnn766Vx//fWFNp07d06fPn1yxhln5LTTTkuDBg1y+eWXp23bttlzzz0L7YYNG5Y77rgjJ598cg488MC88MILmTJlSk466aRCSAQAAAAAALCuFV2wc+ihh6a0tDQ33HBDbr311myyySbp1KlTrrjiimy22WaFdvvss0/ef//9TJ48OZMmTUqrVq0yduzYGiNsrrjiilxwwQUZNWpUli5dmj59+uTMM89MvXr/+dFsu+22mTJlSi688MIMHz48TZs2zYgRI3LkkUd+YccNAAAAAABQdMFOSUlJDjzwwBx44IGf2nbw4MEZPHjwJ7Zp3Lhxzj///Jx//vmf2K5Lly753e9+95lqBQAAAAAAWJuK7h47AAAAAAAAGyrBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOsN5YvryytktgA+FcAwAAAKC21KvtAgDWljp1SjLuhocyb355bZfCemyrFk1y3IG9a7sMAAAAADZQgh1gvTJvfnlenvdObZcBAAAAALBOmIoNAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBIrHGwc/vtt+e1115b5frXXnstt99++5ruHgAAAAAAgI9Z42Dn9NNPz6xZs1a5/umnn87pp5++prsHAAAAAADgY9Y42KmsrPzE9YsWLUrdunXXdPcAAAAAAAB8TL3P0vi5557Lc889V3g8c+bMLFu2rEa7ioqK3HjjjWnVqtXnrxAAAAAAAIAknzHYuffeezN27NgkSUlJSW666abcdNNNK21bVlaWiy666PNXCAAAAAAAQJLPGOx8//vfz+67757KysoMHjw4I0aMSN++fau1KSkpScOGDdOyZcvUq/eZdg8AAAAAAMAn+EzJS4sWLdKiRYskyXXXXZc2bdqkWbNm66QwAAAAAAAAqlvjITXdu3dfm3UAAAAAAADwKT7XXGl/+ctfcsstt2Tu3LmpqKhIZWVltfUlJSW59957P1eBAAAAAAAArLDGwc6vf/3rXHrppWnWrFk6duyYtm3brs26AAAAAAAA+Jg1Dnauu+669OzZM5MmTUr9+vXXZk0AAAAAAACsRJ013bCioiIDBgwQ6gAAAAAAAHxB1jjY6dChQ+bMmbM2a/lMbrvttnznO99Jhw4d0qNHj/zgBz/IBx98UFj/5z//Od/61rfSoUOHDBgwILfeemuNfSxevDgXXXRRevfunU6dOuWII47I7Nmza7R76aWXcsQRR6RTp07p3bt3Lr744ixevHidHh8AAAAAAMDHrXGwc8455+RPf/pT7rjjjrVZz2q58sor8/Of/zyDBg3KlClT8rOf/Sxbb711li1bliSZOXNmjj/++HTq1CmTJ0/OwIED89Of/jTTpk2rtp/zzjsvN998c0466aSMGTMmixcvzuGHH54FCxYU2pSXl+ewww7LkiVLMmbMmJx00kn53e9+lwsvvPALPWYAAAAAAIA1vsfOiSeemKVLl+YnP/lJzjnnnHz1q19NnTrVc6KSkpL8z//8z+cu8qNmz56dsWPHZvz48dltt90KywcMGFD4/yuvvDIdO3bMz372syRJz549M3fu3IwePTp77bVXkuSNN97ILbfckrPPPjv7779/khWjkPbYY4/ceOONOeqoo5IkN954Y957772MHTs2m266aZJk2bJlOffcc3P00Udn8803X6vHBwAAAAAAsCprPGJn0003zbbbbpuuXbumXbt2adq0aTbddNNq/5o0abI2a02S/P73v8/WW29dLdT5qMWLF+eRRx4pBDhVBg0alJdeeimvvfZakuTBBx/M8uXLq7XbdNNN07t378yYMaOwbMaMGenVq1ch1EmSgQMHZvny5XnooYfW4pEBAAAAAAB8sjUesfOb3/xmbdax2p566qnssMMOGT9+fH7zm99kwYIF2WmnnXL66adn5513zquvvpolS5akdevW1bZr06ZNkhUjfrbeeuvMnj07zZo1qxE+tWnTJrfcckvh8ezZs/O9732vWpuysrI0b958pffjAQAAAAAAWFfWONipLW+++WaeeeaZvPDCCzn77LPTsGHDTJgwIUceeWTuueeelJeXJ1kRvnxU1eOq9RUVFWncuHGN/ZeVlRXaVLX7+L6SpEmTJtXarUz//v1Xue7111/PFlts8YnbAwAAAAAAfNQaBzuPPfbYarXr1q3bmj7FSlVWVmbRokX51a9+la9//etJkp133jn9+vXL9ddfnz59+qzV5wMAAAAAAPiyWONgZ+jQoSkpKfnUdv/4xz/W9ClWqqysLJtuumkh1ElW3BunXbt2+b//+7/svffeSZIFCxZU266ioiJJClOvlZWVZeHChTX2X1FRUW16trKyshr7SlaM/Pm0ewhNnz59les+aTQPAAAAAADAyqxxsHPdddfVWLZs2bLMmzcvv/vd77J8+fKcfPLJn6u4lfna176WV199daXrPvzww7Rs2TL169fP7Nmzs+uuuxbWVd0Pp+reO61bt86///3vGgHN7Nmzq92fp3Xr1jXupbNgwYK8+eabNe7jAwAAAAAAsC7VWdMNu3fvXuNfr169sv/+++fGG29MvXr18uijj67NWpMke+yxR959991qI4Heeeed/P3vf0/79u1TWlqaHj165O6776623dSpU9OmTZtsvfXWSZI+ffqkTp06ueeeewptysvL8+CDD6Zv376FZX379s1f//rXwoifJJk2bVrq1KmT3r17r/XjAwAAAAAAWJU1DnY+cad16mTvvffOzTffvNb3/c1vfjMdOnTIiBEjMnXq1EyfPj3HHHNMSktLc9BBByVJfvjDH+bJJ5/MOeeck0ceeSSjR4/OnXfemRNOOKGwn69+9avZf//9c/HFF+fWW2/Ngw8+mOOPPz6NGzfOkCFDCu2GDBmSTTbZJMcdd1wefPDB3Hrrrbn44oszZMiQbL755mv9+AAAAAAAAFZljadi+zTl5eUrvTfN51WnTp1MmjQpF1xwQUaNGpUlS5aka9eu+e1vf5vmzZsnSbp27ZoxY8bkiiuuyC233JItt9wy5513XgYOHFhtX2eeeWY22WSTXHrppXnvvffSpUuXXH311WncuHGhTZMmTXLttdfm5z//eY477rhssskm2X///XPSSSet9WMDAAAAAAD4JGsc7Pzzn/9c6fKKiorMnDkzU6ZMSdeuXde4sE/StGnT/PKXv/zENv3790///v0/sU1paWlOO+20nHbaaZ/Yrk2bNrnmmms+a5kAAAAAAABr1RoHO/369UtJSclK11VWVqZTp04599xz17gwAAAAAAAAqlvjYOf888+vEeyUlJSkrKwsLVu2zNe+9rXPXRwAAAAAAAD/scbBzn777bc26wAAAAAAAOBTrHGw81H/93//l3nz5iVJttpqK6N1AAAAAAAA1oHPFezce++9ufDCCwuhTpWtt946I0eOTP/+/T9XcQAAAAAAAPzHGgc7DzzwQEaMGJEtt9wyJ510Utq0aZMkeemll/K73/0uJ5xwQiZMmJC+ffuutWIBAAAAAAA2ZGsc7IwfPz5t27bNb3/722y88caF5f37988hhxySgw46KOPGjRPsAAAAAAAArCV11nTD559/Pt/5zneqhTpVNt5443z3u9/N888//7mKAwAAAAAA4D/WONhp0KBBysvLV7m+vLw8DRo0WNPdAwAAAAAA8DFrHOz06NEj1113XWbNmlVj3VNPPZXf/OY36dWr1+cqDgAAAAAAgP9Y43vsnHrqqRkyZEgOOuigdOzYMa1atUqSzJkzJ08//XSaNWuWU045Za0VCgAAAAAAsKFb4xE722yzTf7nf/4nQ4cOTXl5eaZOnZqpU6emvLw8hx56aP7whz9k6623Xpu1AgAAAAAAbNDWeMTO0qVL06BBg5xxxhk544wzaqxfuHBhli5dmnr11vgpAAAAAAAA+Ig1HrFz3nnnZciQIatcf+CBB+bCCy9c090DAAAAAADwMWsc7PzlL3/JgAEDVrl+wIABmTFjxpruHgAAAAAAgI9Z42Bn/vz52XzzzVe5vkWLFvnXv/61prsHAAAAAADgY9Y42Nl0000zZ86cVa5/6aWX0qhRozXdPQAAAAAAAB+zxsHOrrvumhtvvDHPPvtsjXV///vf87vf/S59+/b9XMUBAAAAAADwH/XWdMMf/ehH+ctf/pLBgwenX79++drXvpYkefHFF3PfffeladOm+dGPfrTWCgUAAAAAANjQrXGws/nmm+fWW2/NpZdemunTp+dPf/pTkqRRo0bZd999c9JJJ33iPXgAAAAAAAD4bNY42EmSFi1a5KKLLkplZWXefvvtJEnTpk1TUlKyVooDAAAAAADgPz5XsFOlpKQkzZo1Wxu7AgAAAAAAYBXq1HYBAAAAAAAArB7BDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAA65XlyytruwQ2EM41AACgNtSr7QIAAGBtqlOnJONueCjz5pfXdimsx7Zq0STHHdi7tssAAAA2QIIdAADWO/Pml+flee/UdhkAAACw1pmKDQAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAikTRBzvvvfde+vbtm7Zt2+Zvf/tbtXU333xzBgwYkA4dOuRb3/pW7rvvvhrbL1iwIGeccUa6d++ezp07Z8SIEZk/f36Ndk888UQOOOCAdOzYMXvssUcmTZqUysrKdXZcAAAAAAAAH1f0wc748eOzbNmyGsvvuuuunHXWWRk4cGAmT56cTp065fjjj8+TTz5Zrd2JJ56Yhx56KOecc04uueSSzJkzJ0cddVSWLl1aaPPKK69k2LBhad68eSZOnJjDDjsso0ePzlVXXbWuDw8AAAAAAKCgXm0X8Hm89NJL+e///u+cdtppOfvss6utGz16dPbee++ceOKJSZKePXvmhRdeyLhx4zJ58uQkyaxZs/Lggw9mypQp6dOnT5KkVatWGTRoUO65554MGjQoSTJlypRsttlmueyyy1JaWppevXrl7bffzoQJEzJ06NCUlpZ+cQcNAAAAAABssIp6xM55552XIUOGpFWrVtWWz507Ny+//HIGDhxYbfmgQYPy8MMPZ/HixUmSGTNmpKysLL179y60ad26dXbcccfMmDGjsGzGjBnp379/tQBn0KBBqaioyKxZs9bFoQEAAAAAANRQtMHOtGnT8sILL+S4446rsW727NlJUiPwadOmTZYsWZK5c+cW2rVq1SolJSXV2rVu3bqwj0WLFuX1119P69ata7QpKSkptAMAAAAAAFjXinIqtvfffz8XXnhhTjrppDRq1KjG+vLy8iRJWVlZteVVj6vWV1RUpHHjxjW2b9KkSZ555pkkyYIFC1a6r9LS0jRs2LCwr5Xp37//Kte9/vrr2WKLLVa5HgAAAAAA4OOKcsTOlVdemWbNmuV73/tebZcCAAAAAADwhSm6ETvz5s3LVVddlXHjxhVG0yxatKjw3/feey9NmjRJsmK0TfPmzQvbVlRUJElhfVlZWd54440az1FeXl5oUzWip+q5qixevDjvv/9+od3KTJ8+fZXrPmk0DwAAAAAAwMoUXbDz2muvZcmSJRk+fHiNdYceemh23nnnXHrppUlW3EPno/fGmT17durXr59tttkmyYr75Dz88MOprKysdp+dOXPmZIcddkiSbLzxxtliiy1q3Etnzpw5qaysrHHvHQAAAAAAgHWl6KZi23HHHXPddddV+3f66acnSc4999ycffbZ2WabbbLddttl2rRp1badOnVqevXqldLS0iRJ3759U15enocffrjQZs6cOXn22WfTt2/fwrK+fftm+vTpWbJkSbV9lZWVpXPnzuvycAEAAAAAAAqKbsROWVlZevTosdJ17du3T/v27ZMkJ5xwQk455ZS0bNkyPXr0yNSpU/P000/n+uuvL7Tv3Llz+vTpkzPOOCOnnXZaGjRokMsvvzxt27bNnnvuWWg3bNiw3HHHHTn55JNz4IEH5oUXXsiUKVNy0kknFUIiAAAAAACAda3ogp3Vtc8+++T999/P5MmTM2nSpLRq1Spjx46tMcLmiiuuyAUXXJBRo0Zl6dKl6dOnT84888zUq/efH822226bKVOm5MILL8zw4cPTtGnTjBgxIkceeeQXfVgAAAAAAMAGbL0Idnr06JHnn3++xvLBgwdn8ODBn7ht48aNc/755+f888//xHZdunTJ7373u89VJwAAAAAAwOdRdPfYAQAAAAAA2FAJdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIqEYAcAAAAAAKBICHYAAAAAAACKhGAHAAAAAACgSAh2AAAAAAAAioRgBwAAAAAAoEgIdgAAAAAAAIpE0QU7f/zjH/PDH/4wffv2TadOnfLtb387t9xySyorK6u1u/nmmzNgwIB06NAh3/rWt3LffffV2NeCBQtyxhlnpHv37uncuXNGjBiR+fPn12j3xBNP5IADDkjHjh2zxx57ZNKkSTWeDwAAAAAAYF0rumDnmmuuScOGDTNy5MhceeWV6du3b84666yMGzeu0Oauu+7KWWedlYEDB2by5Mnp1KlTjj/++Dz55JPV9nXiiSfmoYceyjnnnJNLLrkkc+bMyVFHHZWlS5cW2rzyyisZNmxYmjdvnokTJ+awww7L6NGjc9VVV31RhwwAAAAAAJAkqVfbBXxWV155ZZo2bVp43KtXr7z77ru5+uqrc+yxx6ZOnToZPXp09t5775x44olJkp49e+aFF17IuHHjMnny5CTJrFmz8uCDD2bKlCnp06dPkqRVq1YZNGhQ7rnnngwaNChJMmXKlGy22Wa57LLLUlpaml69euXtt9/OhAkTMnTo0JSWln6xPwAAAAAAAGCDVXQjdj4a6lTZcccds3DhwixatChz587Nyy+/nIEDB1ZrM2jQoDz88MNZvHhxkmTGjBkpKytL7969C21at26dHXfcMTNmzCgsmzFjRvr3718twBk0aFAqKioya9astX14AAAAAAAAq1R0I3ZW5vHHH8/mm2+eRo0a5fHHH0+yYvTNR7Vp0yZLlizJ3Llz06ZNm8yePTutWrVKSUlJtXatW7fO7NmzkySLFi3K66+/ntatW9doU1JSktmzZ6dHjx6rrKt///6rXPf6669niy22+EzHCQAAAAAAbNiKbsTOx82cOTNTp07NkUcemSQpLy9PkpSVlVVrV/W4an1FRUUaN25cY39NmjQptFmwYMFK91VaWpqGDRsW2gEAAAAAAHwRinrEzhtvvJGTTjopPXr0yKGHHlrb5dQwffr0Va77pNE8AAAAAAAAK1O0I3YqKipy1FFHZdNNN82YMWNSp86KQ2nSpEmS/4y2+Wj7j64vKyvLwoULa+y3vLy80KZqRM/H97V48eK8//77hXYAAAAAAABfhKIMdj744IMcffTRWbBgQX79619Xm1Kt6n44VffJqTJ79uzUr18/22yzTaHdnDlzUllZWa3dnDlzCvvYeOONs8UWW9TYV9V2H7/3DgAAAAAAwLpUdMHO0qVLc+KJJ2b27Nn59a9/nc0337za+m222Sbbbbddpk2bVm351KlT06tXr5SWliZJ+vbtm/Ly8jz88MOFNnPmzMmzzz6bvn37Fpb17ds306dPz5IlS6rtq6ysLJ07d14XhwgAAAAAALBSRXePnXPPPTf33XdfRo4cmYULF+bJJ58srGvXrl1KS0tzwgkn5JRTTknLli3To0ePTJ06NU8//XSuv/76QtvOnTunT58+OeOMM3LaaaelQYMGufzyy9O2bdvsueeehXbDhg3LHXfckZNPPjkHHnhgXnjhhUyZMiUnnXRSISQCAAAAAAD4IhRdsPPQQw8lSS688MIa66ZPn56tt946++yzT95///1Mnjw5kyZNSqtWrTJ27NgaI2yuuOKKXHDBBRk1alSWLl2aPn365Mwzz0y9ev/5sWy77baZMmVKLrzwwgwfPjxNmzbNiBEjcuSRR67bAwUAAAAAAPiYogt2/vznP69Wu8GDB2fw4MGf2KZx48Y5//zzc/75539iuy5duuR3v/vdatcIAAAAAACwLhTdPXYAAAAAAAA2VIIdAAAAAACAIiHYAQAAAAAAKBKCHQAAAAAAgCIh2AEAAAAAACgSgh0AAAAAAIAiIdgBgPXI8uWVtV0CGwjnGgAAANSOerVdAACw9tSpU5JxNzyUefPLa7sU1mNbtWiS4w7sXdtlAAAAwAZJsAMA65l588vz8rx3arsMAAAAANYBU7EBAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAwHpk+fLK2i6BDYRzDQCgdtSr7QIAAABYe+rUKcm4Gx7KvPnltV0K67GtWjTJcQf2ru0yVmn58srUqVNS22WwAXCuAVAbBDsAAADrmXnzy/PyvHdquwyoNQJOvghf9oATgPWXYAcAAABY7wg4AYD1lXvsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEOAAAAAABAkRDsAAAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOysppdeeilHHHFEOnXqlN69e+fiiy/O4sWLa7ssAAAAAABgA1KvtgsoBuXl5TnssMOy3XbbZcyYMfnXv/6VCy+8MB988EFGjRpV2+UBAAAAAAAbCMHOarjxxhvz3nvvZezYsdl0002TJMuWLcu5556bo48+OptvvnntFggAAAAAAGwQTMW2GmbMmJFevXoVQp0kGThwYJYvX56HHnqo9goDAAAAAAA2KCWVlZWVtV3El12vXr3yve99L6ecckq15bvuumu+/e1v11hepX///qvc52uvvZa6detmiy22WGt1Viz8IEuXL19r+4OPq1enTsoabVTbZXwi/YB1TT8A/QCSL38/0AdY177sfSDRD1j39APQDyBZu/3g9ddfT926dfO3v/3tk59zrTzbeq6ioiJlZWU1ljdp0iTl5eVrtM+SkpLUq7d2f/xf9j+iXzavv/56kqzVcI3apx98NvrB+kk/WH36wPpLP1h9+sH6SR/4bPSD9ZN+8NnoB+sn/WD16QPrL/1g9ekHta9evXopLS399HZfQC0brOnTp9d2CXyCqhFVfk9syPQDNnT6AOgHkOgHkOgHoA+AflBM3GNnNZSVlWXBggU1lpeXl6dJkya1UBEAAAAAALAhEuyshtatW2f27NnVli1YsCBvvvlmWrduXUtVAQAAAAAAGxrBzmro27dv/vrXv6aioqKwbNq0aalTp0569+5di5UBAAAAAAAbEsHOahgyZEg22WSTHHfccXnwwQdz66235uKLL86QIUOy+eab13Z5AAAAAADABkKwsxqaNGmSa6+9NnXr1s1xxx2XSy+9NPvvv39GjhxZ26UBAAAAAAAbkHq1XUCxaNOmTa655praLgMAAAAAANiAlVRWVlbWdhEAAAAAAAB8OlOxAQAAAAAAFAnBDgAAAAAAQJEQ7AAAAAAAABQJwQ4AAAAAAECREOwAAAAAAAAUCcEORWfMmDFp27ZtDj744BrrfvGLX6Rfv361UBV8eY0ZMyadO3cuPH7kkUfStm3b/O1vf6vW5oknnqixbdu2bTNlypQvpE6+OA888ECOOuqo9OzZM+3bt883vvGNDB8+PHfeeWeWL19e2+UVtYqKiowZMyb/93//96ltX3vttbRt2zbt2rXLyy+/XG3dP/7xj7Rt2zaPPPLIOqqUL4uRI0dmn332+UzbLF68OKeffnp69uyZtm3b5pprrsnvf//73HHHHeuoSli3PqkffPz6/sknn8wPfvCD9O7dOx07dky/fv0yYsSIPPXUU6v9fP369Uvbtm1zyy231FjXtWvXjBkz5rMfBHyCqvewu+6660qvtYYMGZK2bdtm5MiRhfYfvX5flWOPPTZDhw791HYfP6+HDh2ao48++jMcwZfDvffem9/+9re1XQZfsC/T+1nX7xSr3//+92nbtm3efvvtT2znc9XiItihaM2cOdMLJqyB9u3b56abbkqbNm0Ky8aOHZtZs2bVaHvTTTdl3333/SLLYx277LLLMnz48DRo0CCjRo3KNddck7POOiuNGzfOqaeemoceeqi2SyxqFRUVGTt27GoFO1WWLVuWCRMmrMOqWN/84Q9/yB/+8IecccYZuemmm7L33nvntttuy5133lnbpcE69fjjj+fggw9OvXr1cu6552bixIkZPnx4Fi1alKeffvoz72/ixIlZtmzZOqgUaqpfv37eeeedPPbYY9WWz5s3L08++WQ23njjwrLBgwfn2muv/aJL/NK79957c8MNN9R2GdSyL8P7WdfvwJdBvdouANbExhtvnK997WsZP358evToUdvlQFFp1KhROnXqtFptV7cdxeH+++/PxIkTc/zxx+eEE06otm7gwIE57LDDUq/el+fSYPHixalXr17q1Fm/v4fSo0eP3HHHHTnuuOOyzTbb1HY5FIHZs2enRYsW+da3vlXbpcAX6oYbbshWW22VcePGpW7dukmSXr16ZciQIZ95xGn37t3z2GOP5Y477sh3vvOddVAtVFe/fv306tUrd911V7X3sHfddVe23377atc7X/3qV/PVr361NsqEL70vw/tZ1+8Ui2XLlpmVYz22fn9Swnrt2GOPzf/+7/+udLhtlYqKipxzzjnp06dPdtppp+y333558MEHC+tvv/327LTTTvnggw8Ky/bdd9+0a9cuCxcuLCw74IADcu655yZJlixZkosuuii77757dtppp/Tp0yfHHHNMFixYsA6Okg1Z1bQkDzzwQPbZZ5906NAh++23X5588slCm+XLl2f8+PHp169fdtppp+y111658cYbP3G/Hx+63rZt2yTJxRdfnLZt21YbPr6yoev3339/hgwZkp133jndunXL0KFD8+yzzybRP77srr766jRv3jw//OEPV7q+Y8eOadeuXbVlN954YwYMGJCddtop/fr1y/jx4wsXhlVTEUybNq3Gvvbbb7/8+Mc/Ljx+4403csopp6RHjx7p2LFjDj744DzzzDPVtunXr19+9rOfZfLkydljjz3SsWPHvPvuu4XpQqZNm5YBAwakc+fOOfTQQ/Pqq68Wtq2q5fbbb8+oUaPStWvX9OrVK1dffXWSFR+aDBgwIF26dMnxxx+fioqKas/9aa8XST61jtdeey39+/dPkvzoRz8q9KfXXntt1b+UJPvvv3+aNm2aiRMnfmK7ZMUQ+n333TcdOnTIrrvumssvv7zwbfPFixdn5513zs0331xof9VVV6Vt27bVpi258cYbs8suuxS2mz59evbbb7907tw5Xbt2zX777ZcHHnjgU2th3fi0vtKvX79cddVVef311wvnWL9+/fLoo4/m/vvvLyz7pKmkql4HHnrooZx88snp3Llz9thjj0yePLlG21mzZuXQQw9Np06dsssuu+Tkk0/OW2+9VVh/2GGH5dRTTy08fuaZZ9K2bduMGDGisGz27Nlp27ZtYUTFiy++mKOOOio9evTIzjvvnAEDBqz0ueHjKioq0rRp00Ko81Gf9UsA22+/ffbcc89MmDDhUz/w0A9YW/bZZ5/cfffdWbJkSWHZnXfeWWMqwpVNxfbSSy/lkEMOSYcOHfLNb34zt91220qf4957781ee+2VDh06ZP/991/t0WwvvfRSfvjDH2aXXXZJp06dMnz48GrXWp9326uuuirf+973sssuu6RXr145+uijM2fOnGptPqlfjBw5MrfddltefPHFwmtd1dR1fDmtz+9nXb/zec2cOTNt27at9rfymGOOSdu2bfPiiy8Wlv34xz/O8OHDkyTvvvtuTj/99ML7hCFDhtQYBVr1nvW2227LgAED0qFDhzz33HMrreFf//pXjjnmmOy8887ZddddV3odUjWF27PPPpsf/OAH6dSpU/bcc8/cfvvtNdref//9GTx4cDp27JiePXvm7LPPzqJFiwrrv/nNb+aKK64oPL777rvTtm3bXHTRRYVlf/nLX6pNGVc1WnuXXXZJ586ds++++67y9W9DJNihaO2xxx5p165dxo0bt9L1ixcvzhFHHJH7778/J554Yq688sq0adMmRx99dJ5//vkkSbdu3bJkyZLChcU777yTF198MfXq1cvjjz+eJHn//ffz97//Pd26dUuyYsqGG2+8MUcddVSuuuqqnHXWWWnRokUWL1687g+aDc6bb76Zc889N8OGDcsVV1yR0tLSDBs2rPBhwsUXX5yxY8fmu9/9biZMmJA+ffrk7LPPzvXXX7/az3HTTTclWXEBcNNNN+Wmm25K+/btV9p26tSpOeaYY9KsWbNceumlueSSS9KlS5f861//SqJ/fJktXbo0TzzxRHr27Lnao3J+85vf5Oyzz86uu+6aCRMm5Lvf/W7Gjh2bX/7yl0mSrbfeOp06dcrUqVOrbffyyy/n73//e+FDivLy8hx00EF57rnnctZZZ2XMmDFp2LBhDjvssGofjCXJPffck/vvvz8//elPM378+MK0JP/4xz8yZcqUnHLKKbngggvy6quvVvsQrcoVV1yRjTbaKL/61a+y11575cILL8yll16a6667LqeeempGjRqV//3f/y0cQ7J6rxdVPqmOFi1aZOzYsUlWXIBX9acWLVp84s+5tLQ0P/jBD3L77bfnn//85yrbXX311TnzzDPTp0+fTJgwIUcddVSuu+66XH755YX9dOzYMTNnzixs8+ijj6ZBgwbVLvgfe+yxdO7cOXXr1s2rr76aH/3oR9l+++0zduzYXH755Rk4cGDKy8s/sWbWjdXpK2PHjs2gQYPSvHnzwjk2fvz4tGvXLl26dCksGzx48Kc+39lnn53tttsu48aNyx577JFLLrkkM2bMKKyfNWtWhg4dmsaNG+fyyy/Pz3/+8/ztb3/LscceW2jTrVu3aufcY489lgYNGhSuo6qWbbzxxoXXlmOOOSYVFRX5xS9+kYkTJ2bYsGF5//33P/fPj/Vf+/btM2vWrFxxxRV56aWXPvf+fvjDH2bOnDk1Xsc+Sj9gbdpjjz2yePHiwtS3//d//5fnn38+gwYN+sTtPvzwwxx55JH597//nYsvvjgnn3xyJk2aVO0eI8mK65QRI0Zku+22K7xHOPHEEz/1Wnzu3LkZMmRIysvLc+GFF+aSSy7J22+/ncMPP3ytbfvGG2/kkEMOyfjx43Peeedl+fLlGTJkSN59991Cm0/qF8cee2x22223bLPNNoXXuo/2Q76c1tf3s67f+bw6duxY7fe8fPnyPP744yv93Xft2jXLli3LUUcdlfvuuy+nnHJKfvWrX2XjjTfOEUccUeMLk88880ymTJmSH/3oR5k0aVK22GKLldZw7LHH5plnnsk555yTs88+O/fee2/uvvvulbY95ZRT0qdPn4wbNy477rhjRo4cWe1abNq0afnhD3+YHXbYIWPHjs2pp56aP/3pT/npT39aaLOq66WPL2vdunWaNm2ahQsX5uijj06jRo1y2WWXZfz48fn+979f40uaG7Ivz3wrsAZ++MMf5oQTTsjTTz+djh07Vlt3xx135Lnnnssf/vCHfO1rX0uS7LrrrnnllVcyfvz4/OpXv8pWW22VLbfcMjNnzkzPnj3z+OOPp0WLFunYsWMee+yx7Lbbbpk1a1aWLFmSrl27Jkn+9re/pU+fPjn44IMLzzVgwIAv7qDZoLz77ru54oor0qtXryQrpg3Zbbfdcs011+SII47I9ddfn2HDhhWm1erTp0/eeeedjBs3LgceeOBKv9H6cVXD07fYYotPHKpeWVmZiy66KL17964WqO62226F/9c/vrzefffdLF68uMZFXWVlZbX7C9SpUyd16tTJsmXLMm7cuOy9994588wzk6w4v5YsWZKrrroqw4cPz2abbZa99947l1xySRYuXJhGjRolWfHN0yZNmqRPnz5JkmuvvTYVFRW5+eab06xZsyQrps4ZMGBApkyZkp/85CeF51+yZEkmT55cbZ75JFmwYEFuv/32NG3aNEmyaNGinH766XnjjTeqTVXSqVOnnHHGGUmSnj175p577sn111+fP//5z9lss82SJM8//3xuueWW/PznP0+yeq8Xq1vHjjvumCTZdtttP9PUDwcccEAmTZqUSZMm5ZxzzqmxfuHChRk9enR+8IMfFEZC9e7dO/Xr18+FF16YYcOGZbPNNku3bt0K356qrKzME088kcGDB1e7QJ85c2YOOuigJMmzzz6bJUuW5Kyzzir8/nbdddfVrpu1a3X6Srt27fKVr3wlpaWl1c6xRo0aZeONN/5M592ee+5ZeP3o1atX7r///tx9993p27dvkuTSSy/NTjvtlLFjx6akpCRJssMOOxS+fbvbbrsVbsg9b968bLXVVnnsscfyve99LzfeeGNeeumltGnTJo899li6dOmSunXr5u23385rr72Wn/70p4Ubs/bs2XMt/PTYEAwbNixPPfVUrrzyylx55ZXZdNNN06dPnxx44IGFa/XPYscdd8wee+yRCRMmZO+99y6c5x+lH7A2NWzYMP369ctdd92V3XffPXfeeWc6d+78qVM5/f73v8/8+fPzxz/+Mdttt12SpF27dtlrr70Kj5MUPsD76HSFDRo0qPbB2sqMHTs2TZo0ydVXX50GDRokSbp06ZL+/fvn5ptvrnZtv6bbVl2fJSumBurdu3d69eqVu+++OwcccMCn9ouWLVumadOm+ec//2m66CKyPr+fdf3O5/HRUO973/tenn/++bz//vvZb7/98thjj+Wggw7KK6+8kvnz56dbt265//778/TTT+fXv/514ffdp0+f7Lnnnpk4cWK10frl5eW55ZZbVhnoJMmMGTPyzDPP5Jprrin0zx49emS33XbLpptuWqP9wQcfXOgXnTt3zgMPPJC77747xx57bCorK3PxxRdn0KBB+cUvflHYpnnz5hk+fHiOPfbYbL/99unatWvuuuuuLF68OKWlpXnssccyePDg3HjjjXnvvfeyySab5LHHHit8sX7OnDlZsGBBfvzjHxdG5lXVygpG7FDU/uu//is77LDDSkftPPTQQ9lhhx2y3XbbZenSpYV/3/jGN6p9s6lr166FNLzqD0i3bt2qLdt2220L37hu165dHnjggYwZMyZPP/20uSpZpxo3blzthatx48b5xje+kaeeeipPP/10lixZkr322qvaNgMHDszbb7+dl19+ea3WMnv27Lzxxhv53ve+t8o2+seX38c/tLr77rvTvn37wr/zzjsvyYrf9zvvvFPj/Bo0aFCWLFlSmNZj4MCBWbJkSe69995Cm6lTp2bPPfdMaWlpkhV/j3v06JEmTZoU/hbXqVMn3bp1q/FN0x49etQIdZLk61//eiFMSVIIYN54441q7Xr37l34/7p162abbbbJ17/+9UKokyTbbbddKioq8t577xXqW53Xi89Sx2e10UYb5Ygjjsitt95a+MbgR82aNSuLFi3KXnvtVaPGDz74oDBcv1u3bpk3b17eeOONPP/883nvvffygx/8IG+99VZmz56duXPn5o033ih8ANq2bdvUrVs3p5xySv785z+bNrGWfZa+sjoqKyurnS8f/5tcFb4mK/42tGnTpnAuv//++3niiSey1157ZdmyZYV9bLfddtliiy0K9XTq1Cn169fPY489lsrKyjz++OPp379/2rZtW7iWevzxxwvn3GabbZatttoql112WW677bbP3XfYsDRq1ChXXXVVbr755hx33HH5+te/nrvvvjuHHHJItWlsPotjjz02L7744kq/oaofsC7ss88+mT59ej744INMnTo1e++996du8/TTT2f77bevFuJsu+22+frXv16t3VNPPZU99tij2ofhH7+WW5mHHnoo/fr1S926dQvneVlZWdq1a1f4Jvjy5curvaZUVlau9rZJ8uSTT+aII45Ijx490q5du+y8885ZtGhR4T2LfrF+Wp/fz7p+5/P6+OeRO+20U/r27VttWcOGDbPTTjtl5syZadSoUbUQr379+vmv//qvaiOEkxVfQPmkUCdZ8bqyqv65Mh9937Dxxhtnyy23LPydnjNnTubNm5eBAwdWO9e7d++eOnXqFF4LunXrlg8//DBPP/10Kioq8sILL+Sggw5Ko0aN8sQTT+TDDz/M3/72t8K53rJlyzRq1CjnnHNOpk6dWpiejf8wYoeiVlJSkmOOOSY//vGP8/e//73aunfeeSfPPvvsSofgfvRCt3v37vnFL36RJUuWFNLinXfeOb/85S/z/vvvZ+bMmdW+AfjDH/4wderUyW233ZaxY8emadOmOfjgg3Pcccet9Ft+8Hl89APkKs2aNctLL71UGGr9la98pdr6qscfndZgbaja3ydNK6V/fHltuummKS0trfEmuVevXrnllluSpNq9d6rOr6pRA1WqHletb968eXr06JG77ror3/nOd/Lcc8/lpZdeyqhRowrbvPPOO3nyySdX+ve4ZcuWK93/x5WVlVV7XL9+/SQrpib5qMaNG9do9/Gg6KPbbrLJJqv9evFZ6lgTBx54YCZPnpzJkyfXeMP5zjvvJEm++93vrnTb119/Pcl/Plx89NFHU1FRkfbt22eLLbbI9ttvn5kzZ6ZevXpp0KBBOnTokCRp1apVJkyYkIkTJ+b4449PnTp10qdPn4waNSpbbrnl5z4mPpvP0ldWx2233ZbTTz+98Pi73/1uLrzwwsLjlfWXqg8HKioqsmzZslxwwQW54IILauy76pzbaKON0qFDh8ycObNwj8Kq+d4fe+yx9OnTJ//85z8L37wrKSnJlClTcvnll+dnP/tZFi1alPbt2+f0008vtGHDU7du3WqjRz9q+fLlNaYQ7dixY2G0/ty5czN06NBccsklqzUF4cd17Ngxffr0yZVXXlnjW9n6AetCnz59Ur9+/fzqV7/Ka6+9loEDB37qNvPnz1/pNVKzZs2qXYO8+eabNdo1atSoMJJmVd55551ce+21ufbaa2usq7rWOeOMM6rd1+CCCy7Ifvvtt1rb/vOf/8yRRx6ZnXbaKeeee25atGiR+vXr5+ijjy7Ur1+sn9b397Ou3/k8unfvniuvvDL/+te/Cp89du3aNf/+97/z8ssvZ+bMmdl5551Tv379VFRUrPR14Ctf+UqNafg+3qdWZv78+avsnyuzsvcNVVMUVp3rxx133Eq3rTrXW7Zsmc033zyPPfZYFixYkGbNmqVNmzbp0qVLZs6cmdLS0ixZsqTwN79qNOjo0aPzk5/8JMuWLUvXrl1z5plnFkbwbOgEOxS9gQMHZsyYMRk/fny1F7EmTZqkbdu21YYBrkzXrl3z/vvv55FHHslzzz2Xbt26pXXr1tloo43yyCOP5Kmnnqr2QlxaWpoTTjghJ5xwQl555ZXceuutGTNmTLbeeut85zvfWVeHyQZqZd9IeOutt9K8efPC8Ni33norm2++eWH9v//97yRZ6fDZz6Nqf/Pnz19lG/3jy6tevXrp0qVLHn744SxbtqwQWDRp0qTwJqFqhE3yn9/3x8/BqvmwmzRpUli2995759xzz80777yTu+66K82bN0/37t0L65s0aZJdd901P/rRj2rU9dHnTGqOKPoirO7rxbq2ySab5IgjjsiVV15ZmAqrStXPe+zYsdWmnquy9dZbJ0m1b3SVl5cXvpjQrVu3PProo6lfv3523nnnaj/3vn37pm/fvlm4cGFmzJiRCy64IKeffvpKP6Bh3fosfWV17LHHHoXgNkm1kWufpnHjxikpKcnRRx+db37zmzXWf3Rf3bp1y913350dd9wxO+64YzbZZJN069Ytv/jFLwpv0j46ZW6rVq0yevToLFmyJLNmzcpll12WY445JjNmzMgmm2zymY+T4te0adPC9cvHreqDhyrbbLNN9tprr1x99dX597//vVofZnzccccdlwMPPDDTp0+vtlw/YF2oX79+9txzz8L0N6tzzrZo0aLGFxmTFddlVVMxJSu+cPPx+xcuXLjwU7+A0qRJk+y2226FqZ4+qup8PP7446tNT1V17bE62/7lL3/JokWLMnbs2MKXZJYuXVrjw0j9Yv2zvr+fdf3O5/HREb9VU7Jtuumm2X777fPYY4/lscceK5x3TZo0qfH3PVnRXz763jxZvffULVq0WGX//Kyq+taoUaNq3Caj6rmqVN1nZ8GCBdlll10Ky/70pz+lfv362WqrraqNNurYsWN+/etf54MPPsgjjzySiy66KMcdd1y1GUM2ZKZio+jVqVMnxxxzTKZPn17tJtff+MY3Mnfu3LRo0SIdOnSo8a9Kq1at0rx580ycODFNmjTJ1772tdSpUye77LJLpkyZkg8//HCV3xDadttt8+Mf/zibbrppZs+evc6PlQ3PggUL8vDDD1d7/Ne//jU777xzOnTokPr162fatGnVtvnjH/+YZs2aVZuq4dPUr1//U9/wtW7dOl/96lfz+9//frX2qX98+RxxxBGZP39+JkyY8KltW7VqlaZNm670/Kpfv361C7Y999wzyYpp3e66664MGjQoder85xLjG9/4RuEeAx//W/xl+KbN6r5erI7PO4LnkEMOSWlpaaZMmVJteefOndOwYcO88cYbK63xox8udu3aNY8++mgef/zxQsBWNcXox0ehflSjRo0yaNCg7L333mvlpuR8dp+nr6zs7/hmm21WbR9VHyCsjqr79cyePXul59xH99W1a9e8/PLLmTZtWuGaqVu3bvnXv/6VW2+9NR07dlxpMFW/fv107949w4cPz8KFCz/xgxbWb926dUtFRUW1mwUnKz6QfuSRRwrn1arCn5dffjmlpaU1RlWuri5duqRnz54ZP358teX6AevK4MGDs8cee+TQQw9drfYdOnTIiy++mFdeeaWw7JVXXslzzz1XrV3Hjh1z3333VRsB9/FruZXp1atXXnzxxbRr167Ged66deskKz6EXtm1x+ps+8EHH6SkpKTa6Ls//vGPWbp06UrrWVW/WJ33LHy5bAjvZ12/s6Y23njjtGvXLjfddFPefffdakHH//zP/+S1114r/O532WWXLFy4MA8++GBh+6VLl+bee+8tbPdZdOjQYZX987Oq6ltz585d6bn+0eC2a9eueeKJJ/K///u/1c71v/3tb3nwwQdXea5vtNFG2W233XLggQfmtdde81rw/xmxw3ph3333zbhx4/LII49kq622SpJ85zvfyY033phDDz00Rx55ZLbbbrssWLCgcKO5k08+ubD9LrvskmnTphU+nExW/LG55JJL8tWvfrXazSyPPfbYtG/fPu3atUvDhg1z3333pby83A1PWSc23XTT/PSnP82IESPSuHHjTJ48OZWVlTnssMPStGnTHHLIIZkyZUrhJtoPPPBA7rzzzpx11lmrdaPJKq1bt8706dPTtWvXNGzYMK1atar27b9kxbc+TjvttPz4xz/OCSeckG9/+9spLS3Nk08+mQ4dOmSPPfbQP77kdt999wwfPjyjR4/Oc889l4EDB6ZFixZZsGBBZs6cmTfffLPwbci6devm2GOPzXnnnZemTZtmt912y5NPPpnJkyfnsMMOq/ZGpGqUwbhx4zJ//vzss88+1Z738MMPzx133JFDDjkkhx56aLbccsu8/fbbeeqpp7L55pvn8MMP/yJ/DDV8lteLT9O8efOUlZXlrrvuytZbb53S0tK0bdt2tUdbNGrUKIceemjGjh1bbXlZWVlGjBiRX/7yl3njjTfSvXv31K1bN3Pnzs306dMzZsyYNGzYMMmKC+PJkycXvqRQtaxqGr6PflnhxhtvzJNPPpldd901zZs3z2uvvZb/+Z//qXavIr44n6evtG7dOrfffnv+/Oc/p3nz5mnRokW1N1Fr4ic/+UkOO+ywnHjiidl7771TVlaWN954I3/961+z3377pUePHklSuCH8o48+miOOOCLJihEYbdq0yaOPPppjjjmmsM/nnnsuF110UQYNGpRtttkmCxcuzMSJE7PVVlut0XRzrB/69OmTrl275vjjj89xxx2X7bffPvPnz8+vf/3r1KlTJ0OHDk2SnHnmmVm2bFn23HPPbLfddlm4cGHuvvvu3HfffTnssMPWaGRblWOPPXalH7LrB6wLHTt2rBEkfpL99tsvV155ZY4++ujCqM7Ro0fXGO0zfPjw7L///oVRaK+99lqmTJnyqVOxjRgxIvvvv3+GDRuW73//+/nKV76Sf//733n00UfTtWvXGtd2n3XbqvcCp59+eoYMGZIXX3wxV199dbUwdnX6RZs2bXLrrbfmzjvvzLbbbpvNNtvsM31pgS/ehvB+1vU7n0fXrl0zZcqUtG/fvnDOdu3aNb/97W9Tv379dO7cOcmK9/IdO3bMqaeempNPPjlf+cpX8pvf/Cbz58/P6NGjP/Pz9u3bN+3bt8+pp56aU045JY0bN86kSZNq9JvVUVJSkpEjR+aUU07JokWLsvvuu6dhw4b55z//mQceeCAnnXRSWrVqlWTFubxo0aL8/e9/L0xz265du5SWlmbWrFnVpjS8//77c8stt+Sb3/xmttxyy/z73//O9ddfny5dunzq69qGQrDDeqFu3boZPnx4zjzzzMKy0tLSXHfddRkzZkwmTJiQN998M5tuumnatWtXY5h49+7dM23atGrJcFVy/PG0uEuXLvnjH/+Yq6++OsuWLUurVq1yySWXrPIGY/B5NG/ePKecckouvvjivPrqq9l+++0zZcqUwpu4n/zkJ2ncuHFuueWWTJgwIVtttVXOPffcDBky5DM9z6hRo3L++efnqKOOygcffJDrrruu8EHFRw0aNCgbbbRRJkyYkB//+Mdp0KBB2rVrl//6r/9Kon8Ug5NPPjm77LJLfvvb3+bcc8/NwoUL06RJk7Rv3z7nn39+tRv4Dh06NPXq1cs111yTG264Ic2bN8/xxx9f7cOpKvvss0/+/Oc/p2XLljWGX2+22Wa56aabcsUVV+SSSy7Ju+++m2bNmmXnnXcunDu16bO8XnyaOnXq5IILLshll12Www8/PIsXL8706dM/04cOhx56aK655posXLiw2vIjjzwym2++ea6++upcf/31qVevXlq2bJndd9+9MFIoWfFlhbp162aHHXYozIXcrFmztG7dOq+++mo6depUaNu2bdvcd999ueCCC/Luu++mefPm2XvvvVc6FRjr3ufpK0cddVReffXVnHbaaamoqMjxxx+fE0444XPV06VLl/z3f/93xowZk9NPPz1LlizJV7/61fTs2TPbbrttoV2jRo2y44475tlnn632jcFu3brlpZdeqvZhRPPmzfOVr3wlEydOzL/+9a80btw4Xbt2zS9/+cvP9AEO65c6depk4sSJGT16dK6++urMnz8/jRo1Ss+ePTNmzJjCFB4HH3xwbr/99kycODFvvvlmNtpoo7Rs2TK/+MUvVnkPg9XVo0eP7LLLLjVuQKwf8GWw0UYb5aqrrso555yTU089NZtvvnmOPfbYTJ8+vdqN09u1a5df/epXueSSS3L88cdn++23z+WXX55hw4Z94v633Xbb3Hzzzbniiity7rnnZtGiRWnevHm6dev2qSNGV2fbtm3b5oILLsjYsWNz9NFHZ8cdd8yvfvWrnHjiiYX9rE6/2H///fP000/n5z//ed59990a947jy2dDeT/r+p011b1790yZMqXaZ49V1ww77bRTNtpooyQrPvecNGlSLr744vzyl78s3Ifsqquuyk477fSZn7ekpCTjx4/P2WefnVGjRqWsrCxDhw7Nv//97xpT066OgQMHpqysLBMmTMgdd9yRJNlqq62y6667VvsSwte+9rU0bdo0y5cvzw477FA4ti5duuQvf/lLtZ9Dy5YtU6dOnVxxxRV56623summm6ZPnz758Y9//JnrW1+VVFZWVtZ2EQDUNHLkyDzzzDO58847a7sUAAAAWG3ezwKsW+6xAwAAAAAAUCRMxQYAAMB6YVU3Y09WTDtiqjMAANYHpmIDAACg6L322mvp37//Ktd37949v/nNb77AigAAYN0Q7AAAAFD0Fi9enOeff36V6zfZZJO0bt36C6wIAADWDcEOAAAAAABAkahT2wUAAAAAAACwegQ7AAAAAAAARUKwAwAAAAAAUCQEOwAAAAAAAEVCsAMAALCOPPLII2nbtm2mTZv2qW1HjhyZfv36fQFVAQAAxUywAwAAsAG44447cs0119R2GQAAwOdUr7YLAAAAIPn5z3+eysrKdbb/O++8My+++GIOP/zwdfYcAADAuifYAQAA+BKoX79+bZcAAAAUAVOxAQAAfMzChQvzi1/8Iv369ctOO+2UXr165Ygjjsjf//73JEm/fv0ycuTIGtsNHTo0Q4cOrbF8+fLlueyyy9K7d+906tQpxxxzTF5//fVqbVZ2j53ly5fnmmuuyd57750OHTrkG9/4RkaNGpXy8vIaz/HAAw/kkEMOSefOndOlS5d873vfyx133FGo6/7778+8efPStm3btG3b1v18AACgSBmxAwAA8DFnn3127r777hxyyCFp06ZN3n333Tz++ON56aWX0r59+8+8vyuvvDIlJSU56qij8tZbb+Xaa6/N4Ycfnj/84Q/ZaKONVrndqFGjctttt2W//fbL0KFD89prr+W3v/1tnn322dxwww2FUT6///3vc8YZZ2T77bfP0UcfncaNG+cf//hH/vKXv2TffffNMccckwULFuSNN97I6aefniTZZJNN1uyHAwAA1CrBDgAAwMc88MAD+f73v19tVM5RRx21xvsrLy/P1KlT06hRoyRJu3btcuKJJ+Z3v/tdDj300JVuM3PmzNx888255JJLsu+++xaW9+jRIz/4wQ8ybdq07LvvvlmwYEHOO++8dOzYMb/5zW/SoEGDQtuqe/b07t071113XSoqKvLtb397jY8DAACofaZiAwAA+JiysrI89dRT+de//rVW9ved73ynEOokyV577ZXmzZvngQceWOU206ZNS+PGjdO7d++8/fbbhX/t27fPxhtvnEceeSRJ8tBDD+W9997L8OHDq4U6SVJSUrJW6gcAAL48jNgBAAD4mFNOOSUjR47M7rvvnvbt22e33XbLd77znWyzzTZrtL9tt9222uOSkpJsu+22mTdv3iq3eeWVV7JgwYL06tVrpevfeuutJMmrr76aJNl+++3XqDYAAKC4CHYAAAA+ZtCgQenatWv+9Kc/5aGHHsqUKVMyefLkjBkzJrvtttsqt1u2bFnq1q27VmpYvnx5mjVrlksuuWSl65s2bbpWngcAACgugh0AAICVaNGiRQ4++OAcfPDBeeutt/Ld7343EyZMyG677ZYmTZqkoqKixjb//Oc/Vzqq55VXXqn2uLKyMq+88kratm27yudv2bJlHn744XTp0iUbbbTRJ7ZLkhdffLHGyKCPMi0bAACsH9xjBwAA4COWLVuWBQsWVFvWrFmztGjRIosXL06SbLPNNnnqqacKj5Pkvvvuy+uvv77Sfd5+++1ZuHBh4fG0adPy5ptvpm/fvqusY+DAgVm2bFnGjx9fY93SpUsLwVKfPn2yySabZOLEifnwww+rtausrCz8f8OGDWscFwAAUHyM2AEAAPiI9957L7vttlsGDBiQr3/969l4443z17/+NX/7298ycuTIJMngwYNz99135wc/+EEGDhyYV199NXfccUdh9MzHNWnSJAcddFD222+/vPXWW7n22muz7bbb5vvf//4q6+jevXsOOOCATJw4Mf/4xz/Su3fv1K9fPy+//HKmTZuWn/70p9lrr73SqFGjnH766TnzzDOz//77Z5999klZWVmee+65fPDBB7nooouSJO3bt8/UqVNzwQUXpEOHDtl4443Tr1+/tf8DBAAA1inBDgAAwEdstNFGOfDAA/PQQw/lnnvuSWVlZVq2bJmzzz47Bx10UJJk1113zciRI3P11Vfn/PPPz0477ZQJEyYUQpSPO+aYY/L8889n0qRJee+999KrV6+cffbZadiw4SfW8rOf/Sw77bRTbrzxxlx++eWpW7duttpqq3zrW99Kly5dCu0GDx6cZs2aZdKkSRk/fnzq1auX1q1b5/DDDy+0Oeigg/KPf/wjv//973PNNddkq622EuwAAEARKqn86Nh8AAAAasWpp56aJ598Mn/6059quxQAAOBLzD12AAAAvgTefPPNbLbZZrVdBgAA8CUn2AEAAKhFzz33XMaOHZuZM2emV69etV0OAADwJeceOwAAALXoT3/6U66//voMGjQow4cPr+1yAACALzn32AEAAAAAACgSpmIDAAAAAAAoEoIdAAAAAACAIiHYAQAAAAAAKBKCHQAAAAAAgCIh2AEAAAAAACgSgh0AAAAAAIAiIdgBAAAAAAAoEoIdAAAAAACAIvH/AN7753hr8OCWAAAAAElFTkSuQmCC\n"
+          },
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "fake_df['label'] = 0\n",
+        "true_df['label'] = 1"
+      ],
+      "metadata": {
+        "id": "Y4xu4MsPTEhk"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df_train = pd.merge(fake_df, true_df, how='outer')"
+      ],
+      "metadata": {
+        "id": "8eASStFvSmp2"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Remove stopwords and punctuations"
+      ],
+      "metadata": {
+        "id": "NBpuydotU16X"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import nltk\n",
+        "nltk.download('stopwords')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "tTk3M-vcU6TF",
+        "outputId": "e3221301-07be-4fe3-9584-a0794466d1ba"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "[nltk_data] Downloading package stopwords to /root/nltk_data...\n",
+            "[nltk_data]   Unzipping corpora/stopwords.zip.\n"
+          ]
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "True"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 35
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from nltk.corpus import stopwords\n",
+        "import string"
+      ],
+      "metadata": {
+        "id": "tJyXYeySVBYX"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def text_process(text):\n",
+        "  nopunc = [char for char in text if char not in string.punctuation]\n",
+        "  nopunc = ''.join(nopunc)\n",
+        "  return [word for word in nopunc.split() if word.lower() not in stopwords.words('english')]"
+      ],
+      "metadata": {
+        "id": "tM3zICUCVGj6"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "###Model creation and Training"
+      ],
+      "metadata": {
+        "id": "S5qu3qhzVl5W"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.model_selection import train_test_split\n",
+        "from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer"
+      ],
+      "metadata": {
+        "id": "19DjTEvpVMDW"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X_train, X_test, y_train, y_test = train_test_split(df_train['title'], df_train['label'], test_size=0.2, random_state=42)"
+      ],
+      "metadata": {
+        "id": "ogPjHrm4V7T8"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Deep learning multiple perceptron nueral network binary classifier\n",
+        "from sklearn.neural_network import MLPClassifier\n",
+        "from sklearn.pipeline import Pipeline\n",
+        "\n",
+        "news_classifier = Pipeline([\n",
+        "    ('vect', CountVectorizer(analyzer=text_process)),\n",
+        "    ('tfidf', TfidfTransformer()),\n",
+        "    ('clf', MLPClassifier(solver = \"adam\", activation = 'tanh',\n",
+        "                         #hidden_layer_sizes=(100,10),\n",
+        "                          random_state=1,\n",
+        "                          max_iter = 200,\n",
+        "                          early_stopping=True))])"
+      ],
+      "metadata": {
+        "id": "PrYCQzYjWNHu"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "news_classifier.fit(X_train, y_train)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 159
+        },
+        "id": "Rg26h2vVWWPd",
+        "outputId": "0a14cfcc-21be-47fc-80ef-d9f484ff69bc"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "Pipeline(steps=[('vect',\n",
+              "                 CountVectorizer(analyzer=<function text_process at 0x7a4cb41d0af0>)),\n",
+              "                ('tfidf', TfidfTransformer()),\n",
+              "                ('clf',\n",
+              "                 MLPClassifier(activation='tanh', early_stopping=True,\n",
+              "                               hidden_layer_sizes=(100, 10), random_state=1))])"
+            ],
+            "text/html": [
+              "<style>#sk-container-id-1 {color: black;background-color: white;}#sk-container-id-1 pre{padding: 0;}#sk-container-id-1 div.sk-toggleable {background-color: white;}#sk-container-id-1 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-1 label.sk-toggleable__label-arrow:before {content: \"▸\";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-1 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-1 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-1 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: \"▾\";}#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-1 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-1 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-1 div.sk-parallel-item::after {content: \"\";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-serial::before {content: \"\";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-1 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-1 div.sk-item {position: relative;z-index: 1;}#sk-container-id-1 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-1 div.sk-item::before, #sk-container-id-1 div.sk-parallel-item::before {content: \"\";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-1 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-1 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-1 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-1 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-1 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-1 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-1 div.sk-label-container {text-align: center;}#sk-container-id-1 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-1 div.sk-text-repr-fallback {display: none;}</style><div id=\"sk-container-id-1\" class=\"sk-top-container\"><div class=\"sk-text-repr-fallback\"><pre>Pipeline(steps=[(&#x27;vect&#x27;,\n",
+              "                 CountVectorizer(analyzer=&lt;function text_process at 0x7a4cb41d0af0&gt;)),\n",
+              "                (&#x27;tfidf&#x27;, TfidfTransformer()),\n",
+              "                (&#x27;clf&#x27;,\n",
+              "                 MLPClassifier(activation=&#x27;tanh&#x27;, early_stopping=True,\n",
+              "                               hidden_layer_sizes=(100, 10), random_state=1))])</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class=\"sk-container\" hidden><div class=\"sk-item sk-dashed-wrapped\"><div class=\"sk-label-container\"><div class=\"sk-label sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-1\" type=\"checkbox\" ><label for=\"sk-estimator-id-1\" class=\"sk-toggleable__label sk-toggleable__label-arrow\">Pipeline</label><div class=\"sk-toggleable__content\"><pre>Pipeline(steps=[(&#x27;vect&#x27;,\n",
+              "                 CountVectorizer(analyzer=&lt;function text_process at 0x7a4cb41d0af0&gt;)),\n",
+              "                (&#x27;tfidf&#x27;, TfidfTransformer()),\n",
+              "                (&#x27;clf&#x27;,\n",
+              "                 MLPClassifier(activation=&#x27;tanh&#x27;, early_stopping=True,\n",
+              "                               hidden_layer_sizes=(100, 10), random_state=1))])</pre></div></div></div><div class=\"sk-serial\"><div class=\"sk-item\"><div class=\"sk-estimator sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-2\" type=\"checkbox\" ><label for=\"sk-estimator-id-2\" class=\"sk-toggleable__label sk-toggleable__label-arrow\">CountVectorizer</label><div class=\"sk-toggleable__content\"><pre>CountVectorizer(analyzer=&lt;function text_process at 0x7a4cb41d0af0&gt;)</pre></div></div></div><div class=\"sk-item\"><div class=\"sk-estimator sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-3\" type=\"checkbox\" ><label for=\"sk-estimator-id-3\" class=\"sk-toggleable__label sk-toggleable__label-arrow\">TfidfTransformer</label><div class=\"sk-toggleable__content\"><pre>TfidfTransformer()</pre></div></div></div><div class=\"sk-item\"><div class=\"sk-estimator sk-toggleable\"><input class=\"sk-toggleable__control sk-hidden--visually\" id=\"sk-estimator-id-4\" type=\"checkbox\" ><label for=\"sk-estimator-id-4\" class=\"sk-toggleable__label sk-toggleable__label-arrow\">MLPClassifier</label><div class=\"sk-toggleable__content\"><pre>MLPClassifier(activation=&#x27;tanh&#x27;, early_stopping=True,\n",
+              "              hidden_layer_sizes=(100, 10), random_state=1)</pre></div></div></div></div></div></div></div>"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 46
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "###MOdel evaluation"
+      ],
+      "metadata": {
+        "id": "7YIn62XHX-HV"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "predicted = news_classifier.predict(X_test)"
+      ],
+      "metadata": {
+        "id": "hiuAVhM8XTCU"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from sklearn.metrics import classification_report\n",
+        "\n",
+        "print(classification_report(predicted,y_test))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "C471eXJyYYhE",
+        "outputId": "574042e0-6b5c-4671-d9ac-24641b2289a9"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "              precision    recall  f1-score   support\n",
+            "\n",
+            "           0       1.00      1.00      1.00      4733\n",
+            "           1       1.00      1.00      1.00      4205\n",
+            "\n",
+            "    accuracy                           1.00      8938\n",
+            "   macro avg       1.00      1.00      1.00      8938\n",
+            "weighted avg       1.00      1.00      1.00      8938\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Saving and download model"
+      ],
+      "metadata": {
+        "id": "cGwUqJRvZIUv"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install joblib"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Q2gEMC2YZfV8",
+        "outputId": "5aae4f2e-db80-4981-b41f-dcdfa6d27fae"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Requirement already satisfied: joblib in /usr/local/lib/python3.10/dist-packages (1.4.2)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import joblib\n",
+        "joblib.dump(news_classifier, 'model.pkl')"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "4WgzXa3MYwI6",
+        "outputId": "4a571468-147f-40cf-b029-7b17559ed76c"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "['model.pkl']"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 55
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from googleapiclient.discovery import build\n",
+        "drive_service = build('drive', 'v3')"
+      ],
+      "metadata": {
+        "id": "B4q5cN_7arUz"
+      },
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "from googleapiclient.http import MediaFileUpload\n",
+        "\n",
+        "file_metadata = {\n",
+        "  'name': 'model.pkl',\n",
+        "  'mimeType': 'text/plain'\n",
+        "}\n",
+        "media = MediaFileUpload('model.pkl',\n",
+        "                        mimetype='text/plain',\n",
+        "                        resumable=True)\n",
+        "created = drive_service.files().create(body=file_metadata,\n",
+        "                                       media_body=media,\n",
+        "                                       fields='id').execute()\n",
+        "print('File ID: {}'.format(created.get('id')))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "8rI7A-ydZU1R",
+        "outputId": "0d18fa7a-f6fd-49ec-8774-9b228f3514cf"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "File ID: 1X8M5-_hYrxLNqa_IpZ2bhWKPFuEMuc1f\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "###Model deployment"
+      ],
+      "metadata": {
+        "id": "1r1a6WGDcZUb"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Dependencies\n",
+        "from flask import Flask, request, jsonify\n",
+        "import joblib\n",
+        "import traceback\n",
+        "\n",
+        "# Your API definition\n",
+        "app = Flask(__name__)\n",
+        "\n",
+        "@app. route('/predict', methods=['POST'])\n",
+        "def predict():\n",
+        "  if model:\n",
+        "    try:\n",
+        "      json_ = request.json\n",
+        "      print(json_)\n",
+        "      prediction = model.predict(json_)\n",
+        "\n",
+        "      return jsonify({'prediction': str(prediction)})\n",
+        "\n",
+        "    except:\n",
+        "      return jsonify({'trace': traceback.format_exc()})\n",
+        "  else:\n",
+        "      return ('Model has not been trained')\n",
+        "\n",
+        "try:\n",
+        "  port = int(sys.argv[1])\n",
+        "except:\n",
+        "  port = 8484\n",
+        "\n",
+        "model = joblib.load('model.pkl')\n",
+        "print('Model loaded')\n",
+        "\n",
+        "app.run(port=port, debug=True)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "GFmB2W7YdRlY",
+        "outputId": "e7cb1a2a-6e3f-423c-e9e0-1cdd5b263a3d"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "metadata": {
+            "tags": null
+          },
+          "name": "stdout",
+          "output_type": "stream",
+          "text": [
+            "Model loaded\n",
+            " * Serving Flask app '__main__'\n",
+            " * Debug mode: on\n"
+          ]
+        },
+        {
+          "metadata": {
+            "tags": null
+          },
+          "name": "stderr",
+          "output_type": "stream",
+          "text": [
+            "INFO:werkzeug:\u001b[31m\u001b[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.\u001b[0m\n",
+            " * Running on http://127.0.0.1:8484\n",
+            "INFO:werkzeug:\u001b[33mPress CTRL+C to quit\u001b[0m\n",
+            "INFO:werkzeug: * Restarting with stat\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "news_title = ['Trump got attacked']\n",
+        "prediction = news_classifier.predict(news_title)\n",
+        "prediction"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "0B6MBVpSaxxF",
+        "outputId": "360f5729-0cbb-4954-da41-334e5b38927b"
+      },
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([0])"
+            ]
+          },
+          "metadata": {},
+          "execution_count": 62
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "wsKK7GfUdAg0"
+      },
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
